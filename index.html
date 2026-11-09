@@ -14,16 +14,16 @@
   body {
     margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
     font-family: -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
-    display: flex; justify-content: center; padding: 24px 16px;
+    display: flex; justify-content: center; padding: 20px 12px;
   }
-  main { width: 100%; max-width: 420px; }
+  main { width: 100%; max-width: 560px; }
   h1 { font-size: 18px; margin: 0 0 16px; color: var(--muted); font-weight: 500; text-align: center; }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px; }
   .hidden { display: none !important; }
 
   /* 社員證 */
   .card {
-    position: relative; overflow: hidden; border-radius: 18px; padding: 22px 20px;
+    position: relative; overflow: hidden; border-radius: 22px; padding: clamp(24px, 7vw, 40px) clamp(22px, 6vw, 36px);
     background: repeating-linear-gradient(45deg, #1b1d22 0 6px, #202329 6px 12px);
     border: 1px solid #33363e;
   }
@@ -33,17 +33,19 @@
     animation: sheen 3s linear infinite; pointer-events: none;
   }
   @keyframes sheen { from { transform: translateX(-60%); } to { transform: translateX(60%); } }
-  .club { font-size: 13px; letter-spacing: .08em; color: var(--accent); font-weight: 700; }
-  .club small { display: block; color: var(--muted); font-weight: 400; letter-spacing: .15em; }
+  .club { font-size: clamp(15px, 4.2vw, 20px); letter-spacing: .08em; color: var(--accent); font-weight: 700; }
+  .club small { display: block; color: var(--muted); font-weight: 400; letter-spacing: .15em; font-size: .8em; }
   .role {
-    display: inline-block; margin-top: 14px; padding: 4px 10px; border-radius: 999px;
-    font-size: 13px; font-weight: 700; background: var(--accent); color: #111;
+    display: inline-block; margin-top: 24px; padding: 6px 16px; border-radius: 999px;
+    font-size: clamp(15px, 4.2vw, 20px); font-weight: 700; background: var(--accent); color: #111;
   }
-  .name { font-size: 30px; font-weight: 800; margin: 12px 0 2px; }
-  .sid { font-size: 22px; font-family: ui-monospace, Menlo, monospace; letter-spacing: .06em; }
-  .meta { margin-top: 14px; display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; }
+  .name { font-size: clamp(36px, 11vw, 56px); font-weight: 800; margin: 20px 0 6px; line-height: 1.15; }
+  .sid { font-size: clamp(26px, 7.5vw, 38px); font-family: ui-monospace, Menlo, monospace; letter-spacing: .06em; }
+  .meta { margin-top: 28px; display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: clamp(14px, 3.8vw, 18px); }
   .clock { font-family: ui-monospace, Menlo, monospace; color: var(--text); }
-  .state { margin-top: 16px; padding: 10px; border-radius: 10px; text-align: center; font-weight: 800; font-size: 16px; }
+  .state { margin-top: 28px; padding: 16px; border-radius: 14px; text-align: center; font-weight: 800; font-size: clamp(20px, 5.5vw, 28px); }
+  .refresh { margin-top: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 14px; }
+  .refresh button { width: auto; margin: 0; padding: 8px 16px; font-size: 14px; background: transparent; color: var(--text); border: 1px solid var(--line); white-space: nowrap; }
   .state.valid { background: rgba(46,204,113,.15); color: var(--ok); }
   .state.expired, .state.suspended { background: rgba(231,76,60,.15); color: var(--bad); }
   .hint { color: var(--muted); font-size: 13px; text-align: center; margin-top: 14px; line-height: 1.6; }
@@ -83,6 +85,10 @@
         <span class="clock" id="clock"></span>
       </div>
       <div class="state" id="cState"></div>
+    </div>
+    <div class="refresh">
+      <span id="refreshInfo"></span>
+      <button id="btnRefresh">立即更新</button>
     </div>
     <p class="hint">結帳時請同時出示<b>本人學生證</b>，<br>店家核對姓名、學號一致即可。</p>
   </div>
@@ -156,6 +162,7 @@
     $('cExpiry').textContent = card.expiryDate;
     $('cState').textContent = STATE_TEXT[card.state] || '✕ 無效';
     $('cState').className = 'state ' + card.state;
+    lastAt = Date.now(); nextAt = lastAt + REFRESH_MS; failed = false; renderRefresh();
     show('cardView');
   }
 
@@ -200,19 +207,36 @@
     $('btnBind').disabled = false;
   };
 
-  // 每 3 分鐘、以及從背景回到前景時重新取卡，停權或過期才會即時反映。
-  // 只在社員證畫面且頁面可見時更新；失敗就保留現有畫面，等下一輪。
-  async function refreshCard() {
-    if (document.hidden || $('cardView').classList.contains('hidden')) return;
+  // 每 3 分鐘、按「立即更新」、或從背景回到前景時重新取卡，停權或過期才會即時反映。
+  // 自動更新只在社員證畫面且頁面可見時進行；失敗就保留現有畫面，等下一輪。
+  const REFRESH_MS = 3 * 60 * 1000;
+  let lastAt = Date.now(), nextAt = lastAt + REFRESH_MS, failed = false, busy = false;
+  const p2 = (n) => String(n).padStart(2, '0');
+
+  function renderRefresh() {
+    const s = Math.max(0, Math.ceil((nextAt - Date.now()) / 1000));
+    const t = new Date(lastAt);
+    $('refreshInfo').textContent = busy ? '更新中…'
+      : (failed ? '更新失敗，' : `最後更新 ${p2(t.getHours())}:${p2(t.getMinutes())}:${p2(t.getSeconds())}，`)
+        + `${Math.floor(s / 60)}:${p2(s % 60)} 後自動更新`;
+  }
+
+  async function refreshCard(manual) {
+    if (busy || $('cardView').classList.contains('hidden') || (manual !== true && document.hidden)) return;
+    busy = true; $('btnRefresh').disabled = true; renderRefresh();
+    let ok = false;
     try {
       const r = await api('getCard');
-      if (!r.ok) return;
-      if (r.bound) renderCard(r.card);
-      else { show('bindView'); goStep(1); } // 被幹部解除綁定
+      ok = r.ok;
+      if (ok && r.bound) renderCard(r.card);
+      else if (ok) { show('bindView'); goStep(1); } // 被幹部解除綁定
     } catch (_) {}
+    if (!ok) { failed = true; nextAt = Date.now() + REFRESH_MS; }
+    busy = false; $('btnRefresh').disabled = false; renderRefresh();
   }
-  setInterval(refreshCard, 3 * 60 * 1000);
-  document.addEventListener('visibilitychange', refreshCard);
+  $('btnRefresh').onclick = () => refreshCard(true);
+  setInterval(() => { if (Date.now() >= nextAt) refreshCard(); renderRefresh(); }, 1000);
+  document.addEventListener('visibilitychange', () => refreshCard());
 
   (async () => {
     try {
