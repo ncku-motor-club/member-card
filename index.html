@@ -200,6 +200,20 @@
     $('btnBind').disabled = false;
   };
 
+  // 每 3 分鐘、以及從背景回到前景時重新取卡，停權或過期才會即時反映。
+  // 只在社員證畫面且頁面可見時更新；失敗就保留現有畫面，等下一輪。
+  async function refreshCard() {
+    if (document.hidden || $('cardView').classList.contains('hidden')) return;
+    try {
+      const r = await api('getCard');
+      if (!r.ok) return;
+      if (r.bound) renderCard(r.card);
+      else { show('bindView'); goStep(1); } // 被幹部解除綁定
+    } catch (_) {}
+  }
+  setInterval(refreshCard, 3 * 60 * 1000);
+  document.addEventListener('visibilitychange', refreshCard);
+
   (async () => {
     try {
       await liff.init({ liffId: LIFF_ID });
