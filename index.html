@@ -62,6 +62,10 @@
   }
   button:disabled { opacity: .5; }
   .link { background: none; color: var(--muted); font-weight: 400; text-decoration: underline; margin-top: 10px; padding: 6px; }
+  .alt-box { margin-top: 22px; padding: 14px; border: 1px solid var(--accent); border-radius: 12px; }
+  .alt-box p { margin: 0; font-size: 14px; line-height: 1.6; }
+  .alt { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  .alt small { display: block; font-size: 12px; font-weight: 400; margin-top: 2px; }
   .msg { margin-top: 12px; font-size: 14px; line-height: 1.6; color: var(--muted); }
   .msg.err { color: var(--bad); }
   .privacy { font-size: 12px; color: var(--muted); line-height: 1.7; margin-top: 18px; border-top: 1px solid var(--line); padding-top: 12px; }
@@ -96,19 +100,22 @@
   <!-- 綁定 -->
   <div id="bindView" class="panel hidden">
     <div id="step1">
-      <p class="msg">第一次使用需要綁定。驗證碼會寄到你的成大學校信箱（學號@gs.ncku.edu.tw）。</p>
+      <p class="msg">第一次使用需要綁定。<b>在校學生</b>請輸入學號，驗證碼會寄到你的成大學校信箱（學號@gs.ncku.edu.tw）。</p>
       <label for="sid1">學號</label>
       <input id="sid1" autocomplete="off" placeholder="例如 E14081234">
       <button id="btnCode">寄送驗證碼</button>
-      <button class="link" id="toStep2">我有幹部給的綁定碼</button>
+      <div class="alt-box">
+        <p><b>OB 畢業學長姊、校外人士</b>沒有學校信箱，<b>請按下面這個按鈕</b>，改用幹部給你的編號與綁定碼。</p>
+        <button class="alt" id="toStep2">OB／校外人士請按這裡<small>我有幹部給的編號與綁定碼</small></button>
+      </div>
     </div>
     <div id="step2" class="hidden">
-      <label for="sid2">學號</label>
+      <label for="sid2">學號，或幹部給你的編號（例如 OB0000001、EX0000001）</label>
       <input id="sid2" autocomplete="off">
-      <label for="code">驗證碼（信箱收到的 6 位數，或幹部給的綁定碼）</label>
+      <label for="code">學校信箱收到的 6 位數驗證碼，或幹部給的綁定碼</label>
       <input id="code" autocomplete="one-time-code" inputmode="text">
       <button id="btnBind">完成綁定</button>
-      <button class="link" id="toStep1">重新寄送驗證碼</button>
+      <button class="link" id="toStep1">回上一步</button>
     </div>
     <p class="msg" id="bindMsg"></p>
     <p class="msg">沒收到驗證碼？請先看垃圾信件匣。超過 5 分鐘仍沒有，請私訊「成大機動車研究社」官方帳號，請幹部確認你的名冊資料，或向幹部索取綁定碼。</p>
