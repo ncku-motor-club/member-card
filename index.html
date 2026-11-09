@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>成大機研社 特約社員證</title>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  :root {
+    --bg: #0e0f12; --panel: #17191e; --text: #f2f2f2; --muted: #9aa0a8;
+    --accent: #ffb400; --ok: #2ecc71; --bad: #e74c3c; --line: #2a2d34;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+    font-family: -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    display: flex; justify-content: center; padding: 24px 16px;
+  }
+  main { width: 100%; max-width: 420px; }
+  h1 { font-size: 18px; margin: 0 0 16px; color: var(--muted); font-weight: 500; text-align: center; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px; }
+  .hidden { display: none !important; }
+
+  /* 社員證 */
+  .card {
+    position: relative; overflow: hidden; border-radius: 18px; padding: 22px 20px;
+    background: repeating-linear-gradient(45deg, #1b1d22 0 6px, #202329 6px 12px);
+    border: 1px solid #33363e;
+  }
+  .card::after { /* 掃光動畫：方便店員一眼看出不是靜態截圖，但不是防偽 */
+    content: ""; position: absolute; inset: -50%;
+    background: linear-gradient(100deg, transparent 40%, rgba(255,255,255,.10) 50%, transparent 60%);
+    animation: sheen 3s linear infinite; pointer-events: none;
+  }
+  @keyframes sheen { from { transform: translateX(-60%); } to { transform: translateX(60%); } }
+  .club { font-size: 13px; letter-spacing: .08em; color: var(--accent); font-weight: 700; }
+  .club small { display: block; color: var(--muted); font-weight: 400; letter-spacing: .15em; }
+  .role {
+    display: inline-block; margin-top: 14px; padding: 4px 10px; border-radius: 999px;
+    font-size: 13px; font-weight: 700; background: var(--accent); color: #111;
+  }
+  .name { font-size: 30px; font-weight: 800; margin: 12px 0 2px; }
+  .sid { font-size: 22px; font-family: ui-monospace, Menlo, monospace; letter-spacing: .06em; }
+  .meta { margin-top: 14px; display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; }
+  .clock { font-family: ui-monospace, Menlo, monospace; color: var(--text); }
+  .state { margin-top: 16px; padding: 10px; border-radius: 10px; text-align: center; font-weight: 800; font-size: 16px; }
+  .state.valid { background: rgba(46,204,113,.15); color: var(--ok); }
+  .state.expired, .state.suspended { background: rgba(231,76,60,.15); color: var(--bad); }
+  .hint { color: var(--muted); font-size: 13px; text-align: center; margin-top: 14px; line-height: 1.6; }
+
+  /* 表單 */
+  label { display: block; font-size: 14px; margin: 14px 0 6px; }
+  input {
+    width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--line);
+    background: #0f1115; color: var(--text); font-size: 16px; text-transform: uppercase;
+  }
+  button {
+    width: 100%; margin-top: 16px; padding: 13px; border: 0; border-radius: 10px;
+    background: var(--accent); color: #111; font-size: 16px; font-weight: 700;
+  }
+  button:disabled { opacity: .5; }
+  .link { background: none; color: var(--muted); font-weight: 400; text-decoration: underline; margin-top: 10px; padding: 6px; }
+  .msg { margin-top: 12px; font-size: 14px; line-height: 1.6; color: var(--muted); }
+  .msg.err { color: var(--bad); }
+  .privacy { font-size: 12px; color: var(--muted); line-height: 1.7; margin-top: 18px; border-top: 1px solid var(--line); padding-top: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>成大機研社 特約社員證</h1>
+
+  <div id="loading" class="panel"><p class="msg">載入中…</p></div>
+
+  <!-- 社員證 -->
+  <div id="cardView" class="hidden">
+    <div class="card">
+      <div class="club">成大機車研究社<small>NCKU MOTOR CLUB</small></div>
+      <div class="role" id="cRole"></div>
+      <div class="name" id="cName"></div>
+      <div class="sid" id="cSid"></div>
+      <div class="meta">
+        <span>有效期限：<span id="cExpiry"></span></span>
+        <span class="clock" id="clock"></span>
+      </div>
+      <div class="state" id="cState"></div>
+    </div>
+    <p class="hint">結帳時請同時出示<b>本人學生證</b>，<br>店家核對姓名、學號一致即可。</p>
+  </div>
+
+  <!-- 綁定 -->
+  <div id="bindView" class="panel hidden">
+    <div id="step1">
+      <p class="msg">第一次使用需要綁定。驗證碼會寄到你的成大學校信箱（學號@gs.ncku.edu.tw）。</p>
+      <label for="sid1">學號</label>
+      <input id="sid1" autocomplete="off" placeholder="例如 E14081234">
+      <button id="btnCode">寄送驗證碼</button>
+      <button class="link" id="toStep2">我有幹部給的綁定碼</button>
+    </div>
+    <div id="step2" class="hidden">
+      <label for="sid2">學號</label>
+      <input id="sid2" autocomplete="off">
+      <label for="code">驗證碼（信箱收到的 6 位數，或幹部給的綁定碼）</label>
+      <input id="code" autocomplete="one-time-code" inputmode="text">
+      <button id="btnBind">完成綁定</button>
+      <button class="link" id="toStep1">重新寄送驗證碼</button>
+    </div>
+    <p class="msg" id="bindMsg"></p>
+    <div class="privacy">
+      個資說明：本社蒐集你的姓名、學號與 LINE 識別碼，僅用於特約店家社員身分核對，
+      由社團幹部管理，資格到期且未續約後刪除。如需查詢或刪除資料，請私訊社團官方帳號。
+    </div>
+  </div>
+
+  <div id="errorView" class="panel hidden"><p class="msg err" id="errorMsg"></p></div>
+</main>
+
+<script>
+  // ===== 設定（這兩個值不是機密，可以放在公開的 repo） =====
+  const LIFF_ID = 'YOUR_LIFF_ID';
+  const GAS_URL = 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec';
+
+  const $ = (id) => document.getElementById(id);
+  const views = ['loading', 'cardView', 'bindView', 'errorView'];
+  function show(id) { views.forEach(v => $(v).classList.toggle('hidden', v !== id)); }
+  function showError(text) { $('errorMsg').textContent = text; show('errorView'); }
+  function setMsg(text, isErr) { $('bindMsg').textContent = text; $('bindMsg').classList.toggle('err', !!isErr); }
+
+  async function api(action, payload) {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      // 用 text/plain 避免 CORS 預檢，GAS 才收得到
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(Object.assign({ action, idToken: liff.getIDToken() }, payload || {})),
+    });
+    const data = await res.json();
+    if (!data.ok && data.error === 'AUTH_FAILED') {
+      // ID token 過期：重新登入一次
+      let retried = false;
+      try { retried = sessionStorage.getItem('relogin') === '1'; } catch (_) {}
+      if (!retried) {
+        try { sessionStorage.setItem('relogin', '1'); } catch (_) {}
+        liff.logout();
+        liff.login({ redirectUri: location.href });
+        return new Promise(() => {});
+      }
+    }
+    try { sessionStorage.removeItem('relogin'); } catch (_) {}
+    return data;
+  }
+
+  const STATE_TEXT = { valid: '✓ 有效社員', expired: '✕ 已過期', suspended: '✕ 已停權' };
+  function renderCard(card) {
+    $('cRole').textContent = card.role;
+    $('cName').textContent = card.name;
+    $('cSid').textContent = card.studentId;
+    $('cExpiry').textContent = card.expiryDate;
+    $('cState').textContent = STATE_TEXT[card.state] || '✕ 無效';
+    $('cState').className = 'state ' + card.state;
+    show('cardView');
+  }
+
+  function tick() {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    $('clock').textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  }
+  setInterval(tick, 1000); tick();
+
+  function goStep(n) {
+    $('step1').classList.toggle('hidden', n !== 1);
+    $('step2').classList.toggle('hidden', n !== 2);
+    if (n === 2 && !$('sid2').value) $('sid2').value = $('sid1').value.trim().toUpperCase();
+  }
+
+  $('toStep2').onclick = () => { setMsg(''); goStep(2); };
+  $('toStep1').onclick = () => { setMsg(''); goStep(1); };
+
+  $('btnCode').onclick = async () => {
+    const sid = $('sid1').value.trim().toUpperCase();
+    if (!sid) return setMsg('請輸入學號', true);
+    $('btnCode').disabled = true;
+    try {
+      const r = await api('requestCode', { studentId: sid });
+      if (r.ok) { setMsg(r.message); goStep(2); }
+      else setMsg(r.message, true);
+    } catch (_) { setMsg('連線失敗，請稍後再試', true); }
+    $('btnCode').disabled = false;
+  };
+
+  $('btnBind').onclick = async () => {
+    const sid = $('sid2').value.trim().toUpperCase();
+    const code = $('code').value.trim().toUpperCase();
+    if (!sid || !code) return setMsg('請輸入學號與驗證碼', true);
+    $('btnBind').disabled = true;
+    try {
+      const r = await api('bind', { studentId: sid, code });
+      if (r.ok) renderCard(r.card);
+      else setMsg(r.message, true);
+    } catch (_) { setMsg('連線失敗，請稍後再試', true); }
+    $('btnBind').disabled = false;
+  };
+
+  (async () => {
+    try {
+      await liff.init({ liffId: LIFF_ID });
+      if (!liff.isInClient()) {
+        // 只是體驗提示；真正的安全檢查在後端
+        return showError('請從「成大機研社」LINE 官方帳號的選單開啟社員證。');
+      }
+      if (!liff.isLoggedIn()) return liff.login();
+      const r = await api('getCard');
+      if (!r.ok) return showError(r.message || '載入失敗');
+      if (r.bound) renderCard(r.card);
+      else { show('bindView'); goStep(1); }
+    } catch (e) {
+      showError('載入失敗，請關閉後重新開啟。');
+    }
+  })();
+</script>
+</body>
+</html>
