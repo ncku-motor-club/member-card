@@ -157,7 +157,7 @@
   /* 展開／收合動畫：把內容區塊的高度在 0 與 auto 之間過渡（需要 interpolate-size；不支援的瀏覽器就沒有動畫，照常展開收合） */
   @supports selector(::details-content) {
     :root { interpolate-size: allow-keywords; }
-    .more::details-content { block-size: 0; overflow: clip; transition: block-size .32s cubic-bezier(.22, 1, .36, 1), content-visibility .32s allow-discrete; }
+    .more::details-content { display: flow-root; /* 讓內容的 margin 不要穿出去，否則動畫結束、套用 content-visibility 時會多出 2px 的跳動 */ block-size: 0; overflow: clip; transition: block-size .32s cubic-bezier(.22, 1, .36, 1), content-visibility .32s allow-discrete; }
     .more[open]::details-content { block-size: auto; }
     @media (prefers-reduced-motion: reduce) { .more::details-content { transition: none; } }
   }
