@@ -160,12 +160,7 @@
     .more::details-content { block-size: 0; overflow: clip; transition: block-size .32s cubic-bezier(.22, 1, .36, 1), content-visibility .32s allow-discrete; }
     .more[open]::details-content { block-size: auto; }
     @media (prefers-reduced-motion: reduce) { .more::details-content { transition: none; } }
-    /* 彈窗的框一格一格變高時，背景模糊每格都要重算，手機會卡；彈窗改成框一次到位，內容淡入。模糊本身不動 */
-    #sheet .more::details-content { transition: none; }
   }
-  @keyframes rowIn { from { opacity: 0; translate: 0 -6px; } }
-  #sheet .more[open] .row { animation: rowIn .3s cubic-bezier(.22, 1, .36, 1) both; }
-  @media (prefers-reduced-motion: reduce) { #sheet .more[open] .row { animation: none; } }
   #sheet .more summary { color: rgba(255,255,255,.7); }
   .more .row:first-of-type { margin-top: 2px; }
   @media (prefers-reduced-motion: reduce) { .more summary::after { transition: none; } }
