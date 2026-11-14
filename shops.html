@@ -282,7 +282,11 @@
     if (shop && map && store.view === 'map') {
       const zoom = Math.max(map.getZoom(), 15);
       const below = L.point(0, Math.round($('sheet').offsetHeight / 2));
-      map.setView(map.unproject(map.project([shop.lat, shop.lng], zoom).add(below), zoom), zoom, { animate: !instant && !reduceMotion() }); // 從列表跳過來時，畫面正在平移，地圖不再同時做動畫
+      const target = map.unproject(map.project([shop.lat, shop.lng], zoom).add(below), zoom);
+      // 飛越動畫：不管縮多小、離多遠都有動畫（setView 在縮放差距超過 4 級或距離太遠時會直接跳過動畫）。
+      // 從列表跳過來時畫面正在平移，地圖不再同時做動畫；減少動態效果時也不動畫
+      if (instant || reduceMotion()) map.setView(target, zoom, { animate: false });
+      else map.flyTo(target, zoom);
     }
     syncHash();
   }
