@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>成大機動車研究社 特約店家</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" integrity="sha384-c6Rcwz4e4CITMbu/NBmnNS8yN2sC3cUElMEMfP3vqqKFp7GOYaaBBCqmaWBjmkjb" crossorigin="anonymous">
+<style>
+  :root {
+    --bg: #0e0f12; --panel: #17191e; --text: #f2f2f2; --muted: #9aa0a8;
+    --accent: #ffb400; --line: #2a2d34;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100dvh;
+    font-family: -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  }
+  #stage { position: relative; flex: 1; min-height: 0; }
+  #map, #list { position: absolute; inset: 0; }
+  #list { overflow-y: auto; padding: 14px 12px 20px; }
+  [hidden] { display: none !important; }
+
+  #note { position: absolute; top: 8px; left: 8px; right: 8px; z-index: 1100; padding: 8px 12px; border-radius: 10px;
+    background: var(--panel); border: 1px solid var(--line); color: var(--muted); font-size: 13px; text-align: center; }
+  #state { position: absolute; inset: 0; z-index: 1050; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; padding: 24px; text-align: center; background: var(--bg); color: var(--muted); line-height: 1.7; }
+  button, .btn { font: inherit; cursor: pointer; }
+  .btn { display: inline-block; padding: 11px 16px; border-radius: 10px; border: 1px solid var(--accent); background: var(--accent);
+    color: #111; font-weight: 700; font-size: 15px; text-decoration: none; text-align: center; }
+  .btn.ghost { background: transparent; color: var(--text); border-color: var(--line); font-weight: 500; }
+
+  nav { display: flex; border-top: 1px solid var(--line); background: var(--panel); padding-bottom: env(safe-area-inset-bottom); }
+  nav button { flex: 1; padding: 12px 0 10px; border: 0; background: none; color: var(--muted); font-size: 13px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  nav button svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  nav button[aria-current="page"] { color: var(--accent); }
+
+  .pin-wrap { background: none; border: 0; }
+  .pin { position: absolute; left: 3px; top: 1px; width: 22px; height: 22px; background: var(--accent); border: 2px solid #111;
+    border-radius: 50% 50% 50% 0; transform: rotate(-45deg); box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+  .pin-wrap.sel .pin { background: #fff; transform: rotate(-45deg) scale(1.25); border-color: var(--accent); }
+
+  #sheet { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 1000; max-height: 62%; overflow-y: auto; padding: 16px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 6px 24px rgba(0,0,0,.45); }
+  .head { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+  .name { margin: 0; font-size: 19px; font-weight: 700; line-height: 1.3; }
+  .close { flex: none; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: none; color: var(--muted); font-size: 18px; line-height: 1; }
+  .chip { display: inline-block; margin-top: 6px; padding: 2px 10px; border-radius: 999px; background: rgba(255,180,0,.15); color: var(--accent); font-size: 12px; font-weight: 700; }
+  .row { margin: 10px 0 0; font-size: 14px; line-height: 1.6; color: var(--muted); white-space: pre-line; }
+  .row a { color: var(--text); }
+  .offers { margin: 12px 0 0; padding: 10px 12px 10px 28px; border-radius: 10px; background: rgba(255,180,0,.10); font-size: 15px; line-height: 1.7; }
+  .until { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
+  .actions { display: flex; gap: 8px; margin-top: 14px; }
+  .actions .btn { flex: 1; }
+
+  .card { padding: 14px; margin-bottom: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
+  .card .name { font-size: 17px; }
+  .empty { padding: 40px 16px; text-align: center; color: var(--muted); line-height: 1.8; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="map" hidden></div>
+  <div id="list" hidden></div>
+  <div id="sheet" role="dialog" aria-label="店家資訊" hidden></div>
+  <div id="note" hidden></div>
+  <div id="state"><span>載入中…</span></div>
+</div>
+<nav aria-label="切換檢視">
+  <button id="navMap" type="button">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>地圖
+  </button>
+  <button id="navList" type="button">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>列表
+  </button>
+</nav>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" integrity="sha384-NElt3Op+9NBMCYaef5HxeJmU4Xeard/Lku8ek6hoPTvYkQPh3zLIrJP7KiRocsxO" crossorigin="anonymous"></script>
+<script>
+  // ===== 設定（不是機密，可以放在公開的 repo） =====
+  const SHOPS_API = 'https://script.google.com/macros/s/AKfycbxp8GAxZ0OWR-gTlE1UrK4EGLLByWPSqFrJ-lj-O8kcljgEfpH6oh2YpJ-X00ISN2EZ3Q/exec';
+  const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+  const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+  const CACHE_KEY = 'shops:cache:v1';
+  const DEFAULT_CENTER = [22.9997, 120.227];
+
+  const $ = (id) => document.getElementById(id);
+
+  function el(tag, props, ...kids) {
+    const node = document.createElement(tag);
+    Object.entries(props || {}).forEach(([k, v]) => { if (v == null) return; if (k.includes('-')) node.setAttribute(k, v); else node[k] = v; });
+    kids.forEach((k) => node.append(k));
+    return node;
+  }
+
+  // ===== 純函式 =====
+  function navigationUrl(shop) {
+    const u = new URL('https://www.google.com/maps/dir/');
+    u.searchParams.set('api', '1');
+    u.searchParams.set('destination', shop.lat + ',' + shop.lng);
+    if (shop.placeId) u.searchParams.set('destination_place_id', shop.placeId);
+    return u.toString();
+  }
+
+  function httpUrl(raw) {
+    try { const u = new URL(raw); return u.protocol === 'http:' || u.protocol === 'https:' ? u.href : ''; } catch (_) { return ''; }
+  }
+
+  function parseHash(hash) {
+    const [view, id] = String(hash || '').replace(/^#/, '').split('/');
+    return { view: view === 'list' ? 'list' : 'map', shopId: id || null };
+  }
+
+  function formatHash(view, shopId) {
+    return '#' + view + (view === 'map' && shopId ? '/' + shopId : '');
+  }
+
+  // ===== 狀態（唯一的擁有者；地圖與列表都只讀它） =====
+  const store = { shops: [], byId: new Map(), selectedId: null, view: 'map' };
+  let map = null;
+  let markers = new Map();
+
+  function setShops(shops) {
+    store.shops = shops;
+    store.byId = new Map(shops.map((s) => [s.id, s]));
+    if (store.selectedId && !store.byId.has(store.selectedId)) store.selectedId = null;
+    renderMarkers();
+    renderList();
+    renderSheet();
+  }
+
+  function select(id) {
+    store.selectedId = id && store.byId.has(id) ? id : null;
+    markers.forEach((m, sid) => { const e = m.getElement(); if (e) e.classList.toggle('sel', sid === store.selectedId); });
+    renderSheet();
+    const shop = store.byId.get(store.selectedId);
+    if (shop && map && store.view === 'map') {
+      const zoom = Math.max(map.getZoom(), 15);
+      const below = L.point(0, Math.round($('sheet').offsetHeight / 2));
+      map.setView(map.unproject(map.project([shop.lat, shop.lng], zoom).add(below), zoom), zoom, { animate: true });
+    }
+    syncHash();
+  }
+
+  function show(view) {
+    store.view = view;
+    $('map').hidden = view !== 'map';
+    $('list').hidden = view !== 'list';
+    $('sheet').hidden = view !== 'map' || !store.selectedId;
+    setCurrent($('navMap'), view === 'map');
+    setCurrent($('navList'), view === 'list');
+    if (view === 'map') { ensureMap(); map.invalidateSize(); renderMarkers(); }
+    syncHash();
+  }
+
+  function setCurrent(btn, on) {
+    if (on) btn.setAttribute('aria-current', 'page'); else btn.removeAttribute('aria-current');
+  }
+
+  function syncHash() {
+    const next = formatHash(store.view, store.selectedId);
+    if (location.hash !== next) history.replaceState(null, '', next);
+  }
+
+  // ===== 資料 =====
+  async function fetchShops() {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15000);
+    try {
+      const res = await fetch(SHOPS_API, { signal: ctrl.signal });
+      const data = await res.json();
+      if (!data.ok || !Array.isArray(data.shops)) throw new Error(data.error || 'BAD_RESPONSE');
+      return data.shops;
+    } finally { clearTimeout(timer); }
+  }
+
+  function readCache() {
+    try { const v = JSON.parse(localStorage.getItem(CACHE_KEY)); return Array.isArray(v) ? v : null; } catch (_) { return null; }
+  }
+  function writeCache(shops) { try { localStorage.setItem(CACHE_KEY, JSON.stringify(shops)); } catch (_) {} }
+
+  function showNote(text) { $('note').textContent = text; $('note').hidden = !text; }
+  function showState(node) { $('state').replaceChildren(...(node ? [node] : [])); $('state').hidden = !node; }
+
+  async function load() {
+    const cached = readCache();
+    if (cached) { setShops(cached); showState(null); applyHash(); }
+    try {
+      const shops = await fetchShops();
+      writeCache(shops);
+      setShops(shops);
+      showNote('');
+      showState(null);
+      if (!cached) applyHash();
+      if (!store.shops.length) showState(el('span', {}, '目前還沒有特約店家，請稍後再來看看。'));
+      else fitAll();
+    } catch (_) {
+      if (cached) showNote('目前顯示的是上次的資料，網路恢復後會自動更新。');
+      else showState(el('span', {}, '載入失敗，請檢查網路後再試一次。', el('br'), el('button', { className: 'btn', type: 'button', onclick: load }, '重新載入')));
+    }
+  }
+
+  // ===== 地圖 =====
+  function ensureMap() {
+    if (map) return;
+    map = L.map('map', { zoomControl: true, attributionControl: true }).setView(DEFAULT_CENTER, 14);
+    L.tileLayer(TILE_URL, { maxZoom: 19, attribution: TILE_ATTRIBUTION }).addTo(map);
+    map.on('click', () => select(null));
+  }
+
+  function renderMarkers() {
+    if (!map) return;
+    markers.forEach((m) => m.remove());
+    markers = new Map();
+    store.shops.forEach((s) => {
+      const icon = L.divIcon({ className: 'pin-wrap' + (s.id === store.selectedId ? ' sel' : ''), html: '<span class="pin"></span>', iconSize: [28, 28], iconAnchor: [14, 28] });
+      const m = L.marker([s.lat, s.lng], { icon, title: s.name }).addTo(map);
+      m.on('click', (e) => { L.DomEvent.stopPropagation(e); select(s.id); });
+      markers.set(s.id, m);
+    });
+  }
+
+  function fitAll() {
+    if (!map || !store.shops.length || store.selectedId) return;
+    const pts = store.shops.map((s) => [s.lat, s.lng]);
+    if (pts.length === 1) map.setView(pts[0], 16);
+    else map.fitBounds(pts, { padding: [48, 48], maxZoom: 16 });
+  }
+
+  // ===== 店家資訊與列表 =====
+  function offerBlock(shop) {
+    if (!shop.offers.length) return null;
+    const ul = el('ul', { className: 'offers' }, ...shop.offers.map((t) => el('li', {}, t)));
+    return [ul, shop.offersUntil ? el('p', { className: 'until' }, '優惠至 ' + shop.offersUntil.replace(/-/g, '/')) : null];
+  }
+
+  function infoRows(shop) {
+    const rows = [];
+    if (shop.address) rows.push(el('p', { className: 'row' }, shop.address));
+    if (shop.hours) rows.push(el('p', { className: 'row' }, '營業時間\n' + shop.hours));
+    if (shop.phone) rows.push(el('p', { className: 'row' }, '電話 ', el('a', { href: 'tel:' + shop.phone.replace(/[^\d+]/g, '') }, shop.phone)));
+    const link = httpUrl(shop.link);
+    if (link) rows.push(el('p', { className: 'row' }, '連結 ', el('a', { href: link, target: '_blank', rel: 'noopener noreferrer' }, new URL(link).hostname)));
+    return rows;
+  }
+
+  function navButton(shop) {
+    return el('a', { className: 'btn', href: navigationUrl(shop), target: '_blank', rel: 'noopener noreferrer' }, '用 Google 地圖導航');
+  }
+
+  function renderSheet() {
+    const shop = store.byId.get(store.selectedId);
+    const sheet = $('sheet');
+    sheet.hidden = !shop || store.view !== 'map';
+    if (!shop) { sheet.replaceChildren(); return; }
+    const offers = offerBlock(shop);
+    sheet.replaceChildren(
+      el('div', { className: 'head' },
+        el('div', {}, el('h2', { className: 'name' }, shop.name), shop.category ? el('span', { className: 'chip' }, shop.category) : ''),
+        el('button', { className: 'close', type: 'button', 'aria-label': '關閉', onclick: () => select(null) }, '✕')),
+      ...(offers || []).filter(Boolean),
+      ...infoRows(shop),
+      el('div', { className: 'actions' }, navButton(shop))
+    );
+  }
+
+  function renderList() {
+    const list = $('list');
+    if (!store.shops.length) { list.replaceChildren(el('div', { className: 'empty' }, '目前還沒有特約店家。')); return; }
+    list.replaceChildren(...store.shops.map((s) => {
+      const offers = offerBlock(s);
+      return el('article', { className: 'card' },
+        el('h2', { className: 'name' }, s.name),
+        s.category ? el('span', { className: 'chip' }, s.category) : '',
+        ...(offers || []).filter(Boolean),
+        ...infoRows(s),
+        el('div', { className: 'actions' },
+          el('button', { className: 'btn ghost', type: 'button', onclick: () => { show('map'); select(s.id); } }, '在地圖上查看'),
+          navButton(s))
+      );
+    }));
+  }
+
+  // ===== 啟動 =====
+  function applyHash() {
+    const { view, shopId } = parseHash(location.hash);
+    show(view);
+    if (shopId) select(shopId);
+  }
+
+  $('navMap').onclick = () => show('map');
+  $('navList').onclick = () => show('list');
+  window.addEventListener('hashchange', () => { const h = parseHash(location.hash); if (h.view !== store.view || h.shopId !== store.selectedId) applyHash(); });
+  load();
+</script>
+</body>
+</html>
