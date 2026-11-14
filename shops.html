@@ -3,23 +3,32 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<link rel="preconnect" href="https://tile.openstreetmap.org">
+<link rel="preconnect" href="https://script.google.com" crossorigin>
 <title>成大機動車研究社 特約店家</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" integrity="sha384-c6Rcwz4e4CITMbu/NBmnNS8yN2sC3cUElMEMfP3vqqKFp7GOYaaBBCqmaWBjmkjb" crossorigin="anonymous">
 <style>
   :root {
     --bg: #0e0f12; --panel: #17191e; --text: #f2f2f2; --muted: #9aa0a8;
     --accent: #ffb400; --landmark: #4ea1ff; --line: #2a2d34;
+    color-scheme: dark; accent-color: var(--accent);
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
   body {
     margin: 0; background: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100dvh;
-    font-family: -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    font-family: system-ui, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
   }
   #stage { position: relative; flex: 1; min-height: 0; }
   #map, #list { position: absolute; inset: 0; }
-  #list { overflow-y: auto; padding: 14px 12px 20px; }
+  #list { overflow-y: auto; overscroll-behavior: contain; padding: 14px 12px 20px; }
   [hidden] { display: none !important; }
+  .visually-hidden:where(:not(:focus-within, :active)) {
+    position: absolute !important; clip-path: inset(50%) !important; overflow: hidden !important; width: 1px !important; height: 1px !important;
+    margin: -1px !important; padding: 0 !important; border: 0 !important; white-space: nowrap !important;
+  }
 
   #note { position: absolute; top: 8px; left: 8px; right: 8px; z-index: 1100; padding: 8px 12px; border-radius: 10px;
     background: var(--panel); border: 1px solid var(--line); color: var(--muted); font-size: 13px; text-align: center; }
@@ -31,9 +40,9 @@
   .btn.ghost { background: transparent; color: var(--text); border-color: var(--line); font-weight: 500; }
 
   nav { display: flex; border-top: 1px solid var(--line); background: var(--panel); padding-bottom: env(safe-area-inset-bottom); }
-  nav button { flex: 1; padding: 12px 0 10px; border: 0; background: none; color: var(--muted); font-size: 13px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
-  nav button svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-  nav button[aria-current="page"] { color: var(--accent); }
+  nav a { flex: 1; padding: 12px 0 10px; color: var(--muted); font-size: 13px; text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  nav a svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  nav a[aria-current="page"] { color: var(--accent); }
 
   .pin-wrap { background: none; border: 0; }
   .pin { position: absolute; left: 3px; top: 1px; width: 22px; height: 22px; background: var(--accent); border: 2px solid #111;
@@ -50,8 +59,9 @@
   .legend i { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 50%; vertical-align: -1px; }
   .legend .d-shop { background: var(--accent); }
   .legend .d-landmark { background: var(--landmark); }
-  #sheet { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 1000; max-height: 62%; overflow-y: auto; padding: 16px;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 6px 24px rgba(0,0,0,.45); }
+  #sheet { position: absolute; inset: auto 8px 8px; z-index: 1000; width: auto; max-width: none; height: auto; max-height: 62%; margin: 0; overflow-y: auto; overscroll-behavior: contain; padding: 16px;
+    color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 6px 24px rgba(0,0,0,.45); }
+  .head form { margin: 0; }
   .head { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
   .name { margin: 0; font-size: 19px; font-weight: 700; line-height: 1.3; }
   .close { flex: none; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: none; color: var(--muted); font-size: 18px; line-height: 1; }
@@ -72,20 +82,21 @@
 </style>
 </head>
 <body>
-<div id="stage">
+<main id="stage">
+  <h1 class="visually-hidden">成大機動車研究社 特約店家地圖</h1>
   <div id="map" hidden></div>
   <div id="list" hidden></div>
-  <div id="sheet" role="dialog" aria-label="店家資訊" hidden></div>
-  <div id="note" hidden></div>
+  <dialog id="sheet" aria-labelledby="sheetTitle" closedby="closerequest"></dialog>
+  <div id="note" role="status" hidden></div>
   <div id="state"><span>載入中…</span></div>
-</div>
+</main>
 <nav aria-label="切換檢視">
-  <button id="navMap" type="button">
+  <a id="navMap" href="#map">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>地圖
-  </button>
-  <button id="navList" type="button">
+  </a>
+  <a id="navList" href="#list">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>列表
-  </button>
+  </a>
 </nav>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" integrity="sha384-NElt3Op+9NBMCYaef5HxeJmU4Xeard/Lku8ek6hoPTvYkQPh3zLIrJP7KiRocsxO" crossorigin="anonymous"></script>
@@ -96,6 +107,7 @@
   const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
   const CACHE_KEY = 'shops:cache:v1';
   const DEFAULT_CENTER = [22.9997, 120.227];
+  const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const LABELS_ALWAYS_MAX = 15;
   const LABELS_MIN_ZOOM = 14;
 
@@ -103,7 +115,12 @@
 
   function el(tag, props, ...kids) {
     const node = document.createElement(tag);
-    Object.entries(props || {}).forEach(([k, v]) => { if (v == null) return; if (k.includes('-')) node.setAttribute(k, v); else node[k] = v; });
+    Object.entries(props || {}).forEach(([k, v]) => {
+      if (v == null) return;
+      if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
+      else if (k.includes('-')) node.setAttribute(k, v);
+      else node[k] = v;
+    });
     kids.forEach((k) => node.append(k));
     return node;
   }
@@ -157,7 +174,7 @@
     if (shop && map && store.view === 'map') {
       const zoom = Math.max(map.getZoom(), 15);
       const below = L.point(0, Math.round($('sheet').offsetHeight / 2));
-      map.setView(map.unproject(map.project([shop.lat, shop.lng], zoom).add(below), zoom), zoom, { animate: true });
+      map.setView(map.unproject(map.project([shop.lat, shop.lng], zoom).add(below), zoom), zoom, { animate: !reduceMotion() });
     }
     syncHash();
   }
@@ -166,10 +183,10 @@
     store.view = view;
     $('map').hidden = view !== 'map';
     $('list').hidden = view !== 'list';
-    $('sheet').hidden = view !== 'map' || !store.selectedId;
     setCurrent($('navMap'), view === 'map');
     setCurrent($('navList'), view === 'list');
     if (view === 'map') { ensureMap(); map.invalidateSize(); renderMarkers(); }
+    renderSheet();
     syncHash();
   }
 
@@ -184,14 +201,10 @@
 
   // ===== 資料 =====
   async function fetchShops() {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 15000);
-    try {
-      const res = await fetch(SHOPS_API, { signal: ctrl.signal });
-      const data = await res.json();
-      if (!data.ok || !Array.isArray(data.shops)) throw new Error(data.error || 'BAD_RESPONSE');
-      return data.shops;
-    } finally { clearTimeout(timer); }
+    const res = await fetch(SHOPS_API, { signal: AbortSignal.timeout?.(15000) });
+    const data = await res.json();
+    if (!data.ok || !Array.isArray(data.shops)) throw new Error(data.error || 'BAD_RESPONSE');
+    return data.shops;
   }
 
   function readCache() {
@@ -223,7 +236,8 @@
   // ===== 地圖 =====
   function ensureMap() {
     if (map) return;
-    map = L.map('map', { zoomControl: true, attributionControl: true }).setView(DEFAULT_CENTER, 14);
+    const animate = !reduceMotion();
+    map = L.map('map', { zoomControl: true, attributionControl: true, zoomAnimation: animate, fadeAnimation: animate, markerZoomAnimation: animate }).setView(DEFAULT_CENTER, 14);
     L.tileLayer(TILE_URL, { maxZoom: 19, attribution: TILE_ATTRIBUTION }).addTo(map);
     map.on('click', () => select(null));
     map.on('zoomend', updateLabels);
@@ -300,20 +314,25 @@
     return el('a', { className: 'btn', href: navigationUrl(shop), target: '_blank', rel: 'noopener noreferrer' }, '用 Google 地圖導航');
   }
 
+  // 非強制式對話框：地圖仍可操作。關閉鈕在 <form method="dialog"> 裡，瀏覽器原生關閉
   function renderSheet() {
     const shop = store.byId.get(store.selectedId);
-    const sheet = $('sheet');
-    sheet.hidden = !shop || store.view !== 'map';
-    if (!shop) { sheet.replaceChildren(); return; }
+    const dlg = $('sheet');
+    if (!shop || store.view !== 'map') {
+      if (dlg.open) dlg.close();
+      if (!shop) dlg.replaceChildren();
+      return;
+    }
     const offers = offerBlock(shop);
-    sheet.replaceChildren(
+    dlg.replaceChildren(
       el('div', { className: 'head' },
-        el('div', {}, el('h2', { className: 'name' }, shop.name), chips(shop)),
-        el('button', { className: 'close', type: 'button', 'aria-label': '關閉', onclick: () => select(null) }, '✕')),
+        el('div', {}, el('h2', { className: 'name', id: 'sheetTitle' }, shop.name), chips(shop)),
+        el('form', { method: 'dialog' }, el('button', { className: 'close', 'aria-label': '關閉', onclick: () => select(null) }, '✕'))),
       ...(offers || []).filter(Boolean),
       ...infoRows(shop),
       el('div', { className: 'actions' }, navButton(shop))
     );
+    if (!dlg.open) dlg.show();
   }
 
   function renderList() {
@@ -346,8 +365,10 @@
     if (shopId) select(shopId);
   }
 
-  $('navMap').onclick = () => show('map');
-  $('navList').onclick = () => show('list');
+  // 對話框被使用者關掉（例如 Esc）但狀態還認為該開著，就同步清除選取；程式自己關的情況，狀態早已不該開著，會被略過
+  $('sheet').addEventListener('close', () => {
+    if (store.selectedId && store.view === 'map') select(null);
+  });
   window.addEventListener('hashchange', () => { const h = parseHash(location.hash); if (h.view !== store.view || h.shopId !== store.selectedId) applyHash(); });
   load();
 </script>
