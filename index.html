@@ -11,8 +11,9 @@
   :root {
     --bg: #0e0f12; --panel: #17191e; --text: #f2f2f2; --muted: #9aa0a8;
     --accent: #ffb400; --ok: #2ecc71; --bad: #e74c3c; --line: #2a2d34;
-    color-scheme: dark; accent-color: var(--accent);
+    accent-color: var(--accent);
   }
+  html { color-scheme: dark !important; } /* LIFF SDK 會在 <html> 寫入行內 color-scheme: light，本頁只有深色設計，要蓋過去 */
   * { box-sizing: border-box; }
   body {
     margin: 0; min-height: 100dvh; background: var(--bg); color: var(--text);
