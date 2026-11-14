@@ -110,7 +110,7 @@
   .head form { margin: 0; }
   .head { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
   .name { margin: 0; font-size: 19px; font-weight: 700; line-height: 1.3; }
-  .close { flex: none; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: none; color: var(--muted); font-size: 18px; line-height: 1; }
+  .close { flex: none; width: 36px; height: 36px; padding: 0; border-radius: 50%; border: 1px solid var(--line); background: none; color: var(--muted); font-size: 18px; line-height: 1; }
   .chip { display: inline-block; margin-top: 6px; padding: 2px 10px; border-radius: 999px; background: rgba(255,180,0,.15); color: var(--accent); font-size: 12px; font-weight: 700; }
   .chip + .chip { margin-left: 6px; }
   .chip.landmark { background: rgba(78,161,255,.16); color: var(--landmark); }
@@ -121,8 +121,22 @@
   #sheet .row.desc { color: #fff; }
   .offers { margin: 12px 0 0; padding: 10px 12px 10px 28px; border-radius: 10px; background: rgba(255,180,0,.10); font-size: 15px; line-height: 1.7; }
   .until { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
-  .actions { display: flex; gap: 8px; margin-top: 14px; }
-  .actions .btn { flex: 1; }
+  .head > div:first-child { min-width: 0; }
+  .tools { display: flex; flex: none; gap: 6px; }
+  .tools form { margin: 0; }
+  .ico { display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border-radius: 50%; border: 1px solid var(--line); background: none; color: var(--text); text-decoration: none; }
+  .ico svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+  .ico.primary { background: var(--accent); border-color: var(--accent); color: #111; }
+  #sheet .ico:not(.primary) { border-color: rgba(255,255,255,.3); background: rgba(255,255,255,.08); }
+  .ico:focus-visible, .more summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .more { margin-top: 10px; }
+  .more summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; list-style: none; cursor: pointer; font-size: 13px; color: var(--muted); }
+  .more summary::-webkit-details-marker { display: none; }
+  .more summary::after { content: ""; flex: none; inline-size: 8px; block-size: 8px; margin-inline-end: 4px; border-inline-end: 2px solid currentColor; border-block-end: 2px solid currentColor; rotate: 45deg; translate: 0 -2px; transition: rotate .2s; }
+  .more[open] summary::after { rotate: -135deg; translate: 0 2px; }
+  #sheet .more summary { color: rgba(255,255,255,.7); }
+  .more .row:first-of-type { margin-top: 2px; }
+  @media (prefers-reduced-motion: reduce) { .more summary::after { transition: none; } }
 
   .card { padding: 14px; margin-bottom: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
   .card .name { font-size: 17px; }
@@ -344,15 +358,19 @@
     return [ul, shop.offersUntil ? el('p', { className: 'until' }, '優惠至 ' + shop.offersUntil.replace(/-/g, '/')) : null];
   }
 
-  function infoRows(shop) {
-    const rows = [];
-    if (shop.description) rows.push(el('p', { className: 'row desc' }, shop.description));
-    if (shop.address) rows.push(el('p', { className: 'row' }, shop.address));
-    if (shop.hours) rows.push(el('p', { className: 'row' }, '營業時間\n' + shop.hours));
-    if (shop.phone) rows.push(el('p', { className: 'row' }, '電話 ', el('a', { href: 'tel:' + shop.phone.replace(/[^\d+]/g, '') }, shop.phone)));
+  // 說明與地址一直顯示；營業時間、電話、連結收進可展開的區塊，卡片才不會太長
+  function infoBlocks(shop) {
+    const blocks = [];
+    if (shop.description) blocks.push(el('p', { className: 'row desc' }, shop.description));
+    if (shop.address) blocks.push(el('p', { className: 'row' }, shop.address));
+    const more = [];
+    const labels = [];
+    if (shop.hours) { labels.push('營業時間'); more.push(el('p', { className: 'row' }, shop.hours)); }
+    if (shop.phone) { labels.push('電話'); more.push(el('p', { className: 'row' }, '電話 ', el('a', { href: 'tel:' + shop.phone.replace(/[^\d+]/g, '') }, shop.phone))); }
     const link = httpUrl(shop.link);
-    if (link) rows.push(el('p', { className: 'row' }, '連結 ', el('a', { href: link, target: '_blank', rel: 'noopener noreferrer' }, new URL(link).hostname)));
-    return rows;
+    if (link) { labels.push('連結'); more.push(el('p', { className: 'row' }, '連結 ', el('a', { href: link, target: '_blank', rel: 'noopener noreferrer' }, new URL(link).hostname))); }
+    if (more.length) blocks.push(el('details', { className: 'more' }, el('summary', {}, labels.join('・')), ...more));
+    return blocks;
   }
 
   function chips(shop) {
@@ -361,8 +379,16 @@
     return wrap;
   }
 
+  const ICON_NAV = '<path d="M3 11l18-8-8 18-2-8z"/>';
+  const ICON_PIN = '<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>';
+  function icon(paths) {
+    const span = el('span', { className: 'svg' });
+    span.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + paths + '</svg>'; // 固定的常數字串，不含使用者資料
+    return span.firstChild;
+  }
+
   function navButton(shop) {
-    return el('a', { className: 'btn', href: navigationUrl(shop), target: '_blank', rel: 'noopener noreferrer' }, '用 Google 地圖導航');
+    return el('a', { className: 'ico primary', href: navigationUrl(shop), target: '_blank', rel: 'noopener noreferrer', 'aria-label': '用 Google 地圖導航', title: '用 Google 地圖導航' }, icon(ICON_NAV));
   }
 
   // 非強制式對話框：地圖仍可操作。關閉鈕在 <form method="dialog"> 裡，瀏覽器原生關閉
@@ -378,10 +404,10 @@
     dlg.replaceChildren(
       el('div', { className: 'head' },
         el('div', {}, el('h2', { className: 'name', id: 'sheetTitle' }, shop.name), chips(shop)),
-        el('form', { method: 'dialog' }, el('button', { className: 'close', 'aria-label': '關閉', onclick: () => select(null) }, '✕'))),
+        el('div', { className: 'tools' }, navButton(shop),
+          el('form', { method: 'dialog' }, el('button', { className: 'close', 'aria-label': '關閉', onclick: () => select(null) }, '✕')))),
       ...(offers || []).filter(Boolean),
-      ...infoRows(shop),
-      el('div', { className: 'actions' }, navButton(shop))
+      ...infoBlocks(shop)
     );
     if (!dlg.open) dlg.show();
   }
@@ -392,13 +418,13 @@
     const card = (s) => {
       const offers = offerBlock(s);
       return el('article', { className: 'card' },
-        el('h2', { className: 'name' }, s.name),
-        chips(s),
+        el('div', { className: 'head' },
+          el('div', {}, el('h2', { className: 'name' }, s.name), chips(s)),
+          el('div', { className: 'tools' },
+            el('button', { className: 'ico', type: 'button', 'aria-label': '在地圖上查看', title: '在地圖上查看', onclick: () => { show('map'); select(s.id); } }, icon(ICON_PIN)),
+            navButton(s))),
         ...(offers || []).filter(Boolean),
-        ...infoRows(s),
-        el('div', { className: 'actions' },
-          el('button', { className: 'btn ghost', type: 'button', onclick: () => { show('map'); select(s.id); } }, '在地圖上查看'),
-          navButton(s))
+        ...infoBlocks(s)
       );
     };
     const shops = store.shops.filter((s) => kindOf(s) === 'shop');
