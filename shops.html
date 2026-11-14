@@ -46,9 +46,9 @@
   /* 浮動玻璃導覽列：半透明底加模糊、內側高光、彈性滑動的指示膠囊 */
   nav { position: fixed; z-index: 1200; inset-inline: 0; inset-block-end: var(--nav-gap); display: flex; justify-content: center; pointer-events: none; }
   .glass, #sheet, .legend {
-    --glass-a: .7;
+    --glass-a: .4;
     background: linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,0) 55%), rgba(24, 26, 31, var(--glass-a));
-    -webkit-backdrop-filter: blur(16px) saturate(180%); backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(1px) saturate(180%); backdrop-filter: blur(1px) saturate(180%);
     border: 1px solid rgba(255,255,255,.18);
     box-shadow: inset 0 1px 0 rgba(255,255,255,.35), inset 0 -1px 0 rgba(255,255,255,.06), 0 8px 24px rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.25);
   }
