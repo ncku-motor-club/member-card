@@ -29,6 +29,7 @@
   /* 地圖與列表左右平移：列表排在地圖右邊，兩個畫面一起整個平移（像輪播），不是滑入；看不到的那個 visibility:hidden（同時 inert，鍵盤與讀屏跳過） */
   #stage[data-view="map"] #list { translate: 100% 0; visibility: hidden; }
   #stage[data-view="list"] #map { translate: -100% 0; visibility: hidden; }
+  #sheet.animating { -webkit-backdrop-filter: none; backdrop-filter: none; } /* 摺疊展開時高度每一格都在變，背景模糊每格重算會卡；動畫期間先關掉 */
   #stage.panning .shop-label, #stage.panning .legend { -webkit-backdrop-filter: none; backdrop-filter: none; }
   #stage.animated #map, #stage.animated #list { transition: translate .5s cubic-bezier(.22, 1, .36, 1), visibility 0s .5s; }
   #stage.animated[data-view="map"] #map, #stage.animated[data-view="list"] #list { transition-delay: 0s; }
@@ -490,6 +491,13 @@
     if (!$('stage').classList.contains('animated')) requestAnimationFrame(() => requestAnimationFrame(() => $('stage').classList.add('animated')));
   }
 
+  // 摺疊區展開或收合的動畫期間，暫停彈窗的背景模糊
+  let blurTimer = 0;
+  $('sheet').addEventListener('click', (e) => {
+    if (!e.target.closest('summary')) return;
+    $('sheet').classList.add('animating'); clearTimeout(blurTimer);
+    blurTimer = setTimeout(() => $('sheet').classList.remove('animating'), 420);
+  });
   // 對話框被使用者關掉（例如 Esc）但狀態還認為該開著，就同步清除選取；程式自己關的情況，狀態早已不該開著，會被略過
   $('sheet').addEventListener('close', () => {
     if (store.selectedId && store.view === 'map') select(null);
