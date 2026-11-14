@@ -105,13 +105,26 @@
 
   /* 寬螢幕（電腦、橫放的平板）：左邊列表、右邊地圖並排，不需要導覽列、平移與彈窗；手機與窄螢幕完全不受影響 */
   @media (min-width: 900px) {
-    :root { --nav-space: 12px; }
+    :root { --nav-space: 12px; --list-w: min(380px, 42vw); }
     nav, #sheet { display: none !important; }
-    #stage { display: grid; grid-template-columns: minmax(340px, 380px) 1fr; }
-    #map, #list { position: relative; inset: auto; translate: none !important; opacity: 1 !important; visibility: visible !important; transition: none !important; }
+    /* 地圖鋪滿整個畫面，列表是浮在地圖左邊的玻璃面板（背景模糊 5px），所以兩個放在同一格 */
+    #stage { display: grid; }
+    #map, #list { grid-area: 1 / 1; position: relative; inset: auto; translate: none !important; opacity: 1 !important; visibility: visible !important; transition: none !important; }
     /* #map 必須維持 relative（不能 static）：Leaflet 的圖層是 absolute，static 會讓它們跑到整個視窗的左上角去，蓋住列表 */
-    #list { grid-area: 1 / 1; border-inline-end: 1px solid var(--line); padding-block-end: 16px; }
-    #map { grid-area: 1 / 2; }
+    #list {
+      z-index: 1100; justify-self: start; align-self: stretch; inline-size: var(--list-w); margin: 12px; padding: 12px 12px 16px; border-radius: 24px;
+      background: linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,0) 55%), rgba(24, 26, 31, .78);
+      -webkit-backdrop-filter: blur(5px) saturate(180%); backdrop-filter: blur(5px) saturate(180%);
+      border: 1px solid rgba(255,255,255,.18);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.35), inset 0 -1px 0 rgba(255,255,255,.06), 0 8px 24px rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.25);
+    }
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { #list { background: var(--panel); } }
+    @media (prefers-reduced-transparency: reduce) { #list { background: var(--panel); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+    /* 玻璃面板上的卡片：半透明，讓模糊的地圖透出來 */
+    .card { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.12); }
+    .section { color: rgba(255,255,255,.7); }
+    /* 地圖左上角的縮放鈕讓到列表右邊 */
+    .leaflet-left .leaflet-control { margin-left: calc(var(--list-w) + 24px); }
     .ico.to-map { display: none; }
     .card { cursor: pointer; }
     .card.sel { border-color: var(--k, var(--accent)); box-shadow: 0 0 0 1px var(--k, var(--accent)); }
@@ -228,6 +241,8 @@
   const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const wideQuery = matchMedia('(min-width: 900px)'); // 寬螢幕：列表與地圖並排
   const isWide = () => wideQuery.matches;
+  // 寬螢幕時列表蓋在地圖左邊，地圖可見區域要扣掉這一塊（地點才不會被列表擋住）
+  const listInset = () => (isWide() ? $('list').offsetLeft + $('list').offsetWidth : 0);
   const LABELS_ALWAYS_MAX = 15;
   const LABELS_MIN_ZOOM = 14;
 
@@ -297,7 +312,7 @@
     const shop = store.byId.get(store.selectedId);
     if (shop && map && (store.view === 'map' || isWide())) {
       const zoom = Math.max(map.getZoom(), 15);
-      const below = L.point(0, Math.round($('sheet').offsetHeight / 2));
+      const below = L.point(-Math.round(listInset() / 2), Math.round($('sheet').offsetHeight / 2)); // x：讓地點出現在「列表右邊的可見區」正中間；y：彈窗在下方時往上讓
       const target = map.unproject(map.project([shop.lat, shop.lng], zoom).add(below), zoom);
       map.setView(target, zoom, { animate: !instant && !reduceMotion() }); // 從列表跳過來時，畫面正在平移，地圖不再同時做動畫
     }
@@ -435,8 +450,9 @@
   function fitAll() {
     if (!map || !store.shops.length || store.selectedId) return;
     const pts = store.shops.map((s) => [s.lat, s.lng]);
-    if (pts.length === 1) map.setView(pts[0], 16);
-    else map.fitBounds(pts, { padding: [48, 48], maxZoom: 16 });
+    const inset = listInset();
+    if (pts.length === 1) { map.setView(pts[0], 16, { animate: false }); map.panBy([-Math.round(inset / 2), 0], { animate: false }); }
+    else map.fitBounds(pts, { paddingTopLeft: [inset + 48, 48], paddingBottomRight: [48, 48], maxZoom: 16 });
   }
 
   // ===== 店家資訊與列表 =====
@@ -507,7 +523,7 @@
     if (!store.shops.length) { list.replaceChildren(el('div', { className: 'empty' }, '目前還沒有地點。')); return; }
     const card = (s) => {
       const offers = offerBlock(s);
-      return el('article', { className: 'card', 'data-id': s.id, onclick: (e) => { if (isWide() && !e.target.closest('a, button, summary')) select(s.id); } },
+      return el('article', { className: 'card kind-' + kindOf(s), 'data-id': s.id, onclick: (e) => { if (isWide() && !e.target.closest('a, button, summary')) select(s.id); } },
         el('div', { className: 'head' },
           el('div', {}, titleOf(s), chips(s)),
           el('div', { className: 'tools' },
