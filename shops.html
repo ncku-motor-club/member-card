@@ -431,7 +431,7 @@
     if (shop.phone) { labels.push('電話'); more.push(el('p', { className: 'row' }, '電話 ', el('a', { href: 'tel:' + shop.phone.replace(/[^\d+]/g, '') }, shop.phone))); }
     const link = httpUrl(shop.link);
     if (link) { labels.push('連結'); more.push(el('p', { className: 'row' }, '連結 ', el('a', { href: link, target: '_blank', rel: 'noopener noreferrer' }, new URL(link).hostname))); }
-    if (more.length) blocks.push(el('details', { className: 'more' }, el('summary', {}, labels.join('・')), ...more));
+    if (more.length) blocks.push(el('details', { className: 'more' }, el('summary', {}, labels.join('・')), el('div', { className: 'more-body' }, ...more)));
     return blocks;
   }
 
@@ -505,6 +505,31 @@
     if (!$('stage').classList.contains('animated')) requestAnimationFrame(() => requestAnimationFrame(() => $('stage').classList.add('animated')));
   }
 
+  // 摺疊動畫的備援：Safari（含 iPhone 的 LINE）不支援 interpolate-size，CSS 版本會直接跳開；改用 Web Animations 動畫高度。
+  // 支援 interpolate-size 的瀏覽器（Chrome、Edge）完全走上面的 CSS，這段不會執行
+  const NEEDS_DETAILS_FALLBACK = !CSS.supports('interpolate-size', 'allow-keywords') || window.FORCE_DETAILS_FALLBACK;
+  if (NEEDS_DETAILS_FALLBACK) {
+    document.addEventListener('click', (e) => {
+      const summary = e.target.closest('.more > summary');
+      if (!summary || reduceMotion()) return; // 減少動態效果時照常直接展開收合
+      const details = summary.parentElement;
+      const body = details.querySelector('.more-body');
+      e.preventDefault();
+      // 動畫進行中再點一下，要往相反方向走：以「目標狀態」而不是 details.open 判斷（收合動畫期間 open 還是 true）
+      const wantOpen = !(details.dataset.want ? details.dataset.want === 'open' : details.open);
+      const current = details.open ? body.getBoundingClientRect().height : 0; // 取消前先記下目前高度，從這裡接著動
+      body.getAnimations().forEach((a) => a.cancel());
+      details.dataset.want = wantOpen ? 'open' : 'closed';
+      const run = (from, to, done) => {
+        body.style.overflow = 'hidden';
+        const anim = body.animate({ height: [from + 'px', to + 'px'] }, { duration: 320, easing: 'cubic-bezier(.22, 1, .36, 1)' });
+        anim.addEventListener('finish', () => { body.style.overflow = ''; delete details.dataset.want; done?.(); });
+        anim.addEventListener('cancel', () => { body.style.overflow = ''; });
+      };
+      if (wantOpen) { details.open = true; run(current, body.scrollHeight); }
+      else run(current, 0, () => { details.open = false; });
+    });
+  }
   // 對話框被使用者關掉（例如 Esc）但狀態還認為該開著，就同步清除選取；程式自己關的情況，狀態早已不該開著，會被略過
   $('sheet').addEventListener('close', () => {
     if (store.selectedId && store.view === 'map') select(null);
