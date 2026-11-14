@@ -92,10 +92,6 @@
     .glass, #sheet, .legend, .shop-label { border: 1px solid CanvasText; background: Canvas; }
     .glass::before { border: 2px solid Highlight; background: none; box-shadow: none; }
   }
-  /* 透鏡玻璃（Chromium 才有）：折射已取代模糊，底色可以更透明；邊緣的高光與色散由 SVG 濾鏡畫出 */
-  html.lens .glass { --glass-a: .22; }
-  html.lens .legend { --glass-a: .28; }
-  html.lens #sheet { --glass-a: .5; }
   /* 導覽列浮在地圖上，其他元件要讓開 */
   .leaflet-bottom { bottom: var(--nav-space); }
 
@@ -336,7 +332,6 @@
     const legend = L.control({ position: 'topright' });
     legend.onAdd = () => {
       legendEl = el('div', { className: 'legend', hidden: true });
-      lensify(legendEl, { bezel: 12, scale: 12 });
       L.DomEvent.disableClickPropagation(legendEl);
       return legendEl;
     };
@@ -465,88 +460,6 @@
   }
 
 
-  // ===== 透鏡玻璃：用 SVG 位移濾鏡讓背景在邊緣折射、色散，再疊上高光 =====
-  // 只有 Chromium（桌面、Android）支援 backdrop-filter 裡的 url(#svg濾鏡)；iOS（含 LINE）與 Firefox 維持原本的霧面玻璃
-  const LENS = /Chrome\//.test(navigator.userAgent) && !/iPhone|iPad|iPod/.test(navigator.userAgent)
-    && CSS.supports('backdrop-filter', 'url(#a)') && !matchMedia('(prefers-reduced-transparency: reduce)').matches;
-  if (LENS) document.documentElement.classList.add('lens');
-
-  // 依元件的大小畫兩張圖：位移圖（R、G 編碼每個像素往哪裡取樣）與高光圖。dist 是離邊緣的深度，只在邊框寬度內才有折射
-  function lensMaps(w, h, r, bezel) {
-    const disp = document.createElement('canvas'); const spec = document.createElement('canvas');
-    disp.width = spec.width = w; disp.height = spec.height = h;
-    const dc = disp.getContext('2d'); const sc = spec.getContext('2d');
-    const di = dc.createImageData(w, h); const si = sc.createImageData(w, h);
-    const hw = w / 2, hh = h / 2, ix = hw - r, iy = hh - r;
-    const L = [-0.62, -0.78]; // 光從左上來
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const px = x + 0.5 - hw, py = y + 0.5 - hh;
-        const qx = Math.abs(px) - ix, qy = Math.abs(py) - iy;
-        let nx, ny, dist;
-        if (qx > 0 && qy > 0) { const l = Math.hypot(qx, qy); nx = Math.sign(px) * qx / l; ny = Math.sign(py) * qy / l; dist = l - r; }
-        else if (qx > qy) { nx = Math.sign(px); ny = 0; dist = qx - r; }
-        else { nx = 0; ny = Math.sign(py); dist = qy - r; }
-        const depth = -dist; // 離邊緣往內的距離
-        const i = (y * w + x) * 4;
-        let R = 128, G = 128, A = 0;
-        if (depth >= 0 && depth < bezel) {
-          const t = depth / bezel;                 // 0＝最外緣，1＝邊框內側
-          const m = Math.pow(1 - t, 2);            // 折射強度：越靠邊越強
-          R = 128 - nx * m * 127; G = 128 - ny * m * 127; // 往內側取樣
-          const facing = nx * L[0] + ny * L[1];    // 這一段邊緣朝不朝光
-          const rim = Math.pow(1 - t, 3);
-          A = Math.min(1, rim * (0.18 + Math.max(0, facing) * 0.95 + Math.max(0, -facing) * 0.4)) * 255;
-        }
-        di.data[i] = R; di.data[i + 1] = G; di.data[i + 2] = 128; di.data[i + 3] = 255;
-        si.data[i] = si.data[i + 1] = si.data[i + 2] = 255; si.data[i + 3] = A;
-      }
-    }
-    dc.putImageData(di, 0, 0); sc.putImageData(si, 0, 0);
-    return { disp: disp.toDataURL(), spec: spec.toDataURL() };
-  }
-
-  let lensSeq = 0;
-  // 讓一個元件變成透鏡玻璃。bezel＝折射邊框寬度（px），scale＝邊緣最大位移（px）
-  function lensify(node, { bezel = 16, scale = 18 } = {}) {
-    if (!LENS || !node) return;
-    const NS = 'http://www.w3.org/2000/svg';
-    let svg = document.getElementById('lens-defs');
-    if (!svg) {
-      svg = document.createElementNS(NS, 'svg');
-      svg.id = 'lens-defs'; svg.setAttribute('width', '0'); svg.setAttribute('height', '0'); svg.setAttribute('aria-hidden', 'true');
-      svg.style.cssText = 'position:absolute;pointer-events:none';
-      document.body.append(svg);
-    }
-    const id = 'lens-' + (++lensSeq);
-    const filter = document.createElementNS(NS, 'filter');
-    filter.id = id; filter.setAttribute('color-interpolation-filters', 'sRGB'); svg.append(filter);
-    node.style.setProperty('-webkit-backdrop-filter', 'url(#' + id + ') saturate(160%) brightness(1.06)');
-    node.style.backdropFilter = 'url(#' + id + ') saturate(160%) brightness(1.06)';
-    let size = '';
-    const update = () => {
-      const w = Math.round(node.offsetWidth), h = Math.round(node.offsetHeight);
-      if (!w || !h || size === w + 'x' + h) return;
-      size = w + 'x' + h;
-      const r = Math.min(parseFloat(getComputedStyle(node).borderTopLeftRadius) || 0, w / 2, h / 2);
-      const maps = lensMaps(w, h, r, Math.min(bezel, w / 2, h / 2));
-      const W = w, H = h; // backdrop 濾鏡的座標單位是 CSS px（實測過，不需乘 devicePixelRatio）
-      const ch = (name, kk, row) => '<feDisplacementMap in="SourceGraphic" in2="map" scale="' + (scale * kk) + '" xChannelSelector="R" yChannelSelector="G" result="d' + name + '"/>'
-        + '<feColorMatrix in="d' + name + '" type="matrix" values="' + row + '" result="c' + name + '"/>';
-      filter.setAttribute('x', '0'); filter.setAttribute('y', '0'); filter.setAttribute('width', W); filter.setAttribute('height', H); filter.setAttribute('filterUnits', 'userSpaceOnUse');
-      // 紅、綠、藍三個頻道用略不同的位移量（色散），邊緣會出現隨背景變化的彩邊
-      filter.innerHTML = '<feImage href="' + maps.disp + '" x="0" y="0" width="' + W + '" height="' + H + '" preserveAspectRatio="none" result="map"/>'
-        + ch('R', 1.08, '1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0')
-        + ch('G', 1, '0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0')
-        + ch('B', 0.92, '0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0')
-        + '<feBlend in="cR" in2="cG" mode="screen" result="rg"/><feBlend in="rg" in2="cB" mode="screen" result="rgb"/>'
-        + '<feImage href="' + maps.spec + '" x="0" y="0" width="' + W + '" height="' + H + '" preserveAspectRatio="none" result="spec"/>'
-        + '<feBlend in="spec" in2="rgb" mode="screen"/>';
-    };
-    new ResizeObserver(update).observe(node);
-    update();
-  }
-
   // ===== 啟動 =====
   function applyHash() {
     const { view, shopId } = parseHash(location.hash);
@@ -560,8 +473,6 @@
   $('sheet').addEventListener('close', () => {
     if (store.selectedId && store.view === 'map') select(null);
   });
-  lensify(document.querySelector('.glass'), { bezel: 20, scale: 24 });
-  lensify($('sheet'), { bezel: 22, scale: 22 });
   window.addEventListener('hashchange', () => { const h = parseHash(location.hash); if (h.view !== store.view || h.shopId !== store.selectedId) applyHash(); });
   load();
 </script>
