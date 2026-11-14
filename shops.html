@@ -14,7 +14,7 @@
     --bg: #0e0f12; --panel: #17191e; --text: #f2f2f2; --muted: #9aa0a8;
     --accent: #ffb400; --landmark: #4ea1ff; --line: #2a2d34;
     color-scheme: dark; accent-color: var(--accent);
-    --nav-h: 64px; --nav-gap: max(12px, env(safe-area-inset-bottom)); --nav-space: calc(var(--nav-h) + var(--nav-gap) + 12px);
+    --nav-h: 54px; --nav-gap: max(12px, env(safe-area-inset-bottom)); --nav-space: calc(var(--nav-h) + var(--nav-gap) + 12px);
     --spring: linear(0, 0.3 8%, 0.8 18%, 1.03 30%, 1.02 40%, 0.995 55%, 1);
   }
   * { box-sizing: border-box; }
@@ -50,21 +50,21 @@
     border: 1px solid rgba(255,255,255,.18);
     box-shadow: inset 0 1px 0 rgba(255,255,255,.35), inset 0 -1px 0 rgba(255,255,255,.06), 0 8px 24px rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.25);
   }
-  .glass { pointer-events: auto; position: relative; isolation: isolate; display: grid; grid-template-columns: 1fr 1fr; inline-size: min(300px, calc(100% - 32px)); padding: 6px; border-radius: 999px; }
+  .glass { pointer-events: auto; position: relative; isolation: isolate; display: grid; grid-template-columns: 1fr 1fr; inline-size: min(200px, calc(100% - 32px)); padding: 4px; border-radius: 999px; }
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .glass, #sheet { background: var(--panel); } }
   @media (prefers-reduced-transparency: reduce) { .glass, #sheet { background: var(--panel); -webkit-backdrop-filter: none; backdrop-filter: none; } }
   .glass a {
-    position: relative; min-block-size: 52px; min-inline-size: 44px; padding: 8px 0 6px; border-radius: 999px; scale: 1;
+    position: relative; min-block-size: 44px; min-inline-size: 44px; padding: 0; border-radius: 999px; scale: 1;
     color: rgba(255,255,255,.78); font-size: 12px; font-weight: 600; text-decoration: none;
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   }
-  .glass a svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .glass a svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   .glass a[aria-current="page"] { color: #fff; }
   .glass a[aria-current="page"] svg { color: var(--accent); }
   .glass a:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
   /* 指示膠囊：兩個項目等寬，位移 100% 剛好是一個項目的寬度 */
   .glass::before {
-    content: ""; position: absolute; z-index: -1; inset-block: 6px; inset-inline-start: 6px; inline-size: calc(50% - 6px); border-radius: 999px; translate: 0 0;
+    content: ""; position: absolute; z-index: -1; inset-block: 4px; inset-inline-start: 4px; inline-size: calc(50% - 4px); border-radius: 999px; translate: 0 0;
     background: linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,.08)); box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 1px 4px rgba(0,0,0,.25);
     transition: translate .5s cubic-bezier(.34, 1.2, .64, 1); transition-timing-function: var(--spring);
   }
@@ -139,10 +139,10 @@
 <nav aria-label="切換檢視">
   <div class="glass">
     <a id="navMap" href="#map">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>地圖
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg><span class="visually-hidden">地圖</span>
     </a>
     <a id="navList" href="#list">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>列表
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg><span class="visually-hidden">列表</span>
     </a>
   </div>
 </nav>
