@@ -45,7 +45,7 @@
 
   /* 浮動玻璃導覽列：半透明底加模糊、內側高光、彈性滑動的指示膠囊 */
   nav { position: fixed; z-index: 1200; inset-inline: 0; inset-block-end: var(--nav-gap); display: flex; justify-content: center; pointer-events: none; }
-  .glass, #sheet {
+  .glass, #sheet, .legend {
     --glass-a: .7;
     background: linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,0) 55%), rgba(24, 26, 31, var(--glass-a));
     -webkit-backdrop-filter: blur(16px) saturate(180%); backdrop-filter: blur(16px) saturate(180%);
@@ -53,8 +53,8 @@
     box-shadow: inset 0 1px 0 rgba(255,255,255,.35), inset 0 -1px 0 rgba(255,255,255,.06), 0 8px 24px rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.25);
   }
   .glass { pointer-events: auto; position: relative; isolation: isolate; display: grid; grid-template-columns: 1fr 1fr; inline-size: min(200px, calc(100% - 32px)); padding: 4px; border-radius: 999px; }
-  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .glass, #sheet { background: var(--panel); } }
-  @media (prefers-reduced-transparency: reduce) { .glass, #sheet { background: var(--panel); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .glass, #sheet, .legend { background: var(--panel); } }
+  @media (prefers-reduced-transparency: reduce) { .glass, #sheet, .legend { background: var(--panel); -webkit-backdrop-filter: none; backdrop-filter: none; } }
   .glass a {
     position: relative; min-block-size: 44px; min-inline-size: 44px; padding: 0; border-radius: 999px; scale: 1;
     color: rgba(255,255,255,.78); font-size: 12px; font-weight: 600; text-decoration: none;
@@ -82,7 +82,7 @@
     .glass a:active { scale: .94; }
   }
   @media (forced-colors: active) {
-    .glass, #sheet { border: 1px solid CanvasText; background: Canvas; }
+    .glass, #sheet, .legend { border: 1px solid CanvasText; background: Canvas; }
     .glass::before { border: 2px solid Highlight; background: none; box-shadow: none; }
   }
   /* 導覽列浮在地圖上，其他元件要讓開 */
@@ -99,7 +99,7 @@
   .shop-label::before { display: none; }
   .shop-label .tag { color: var(--accent); margin-right: 2px; }
   .labels-off .shop-label { display: none; }
-  .legend { padding: 6px 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(23,25,30,.92); color: var(--text); font-size: 12px; line-height: 1.8; }
+  .legend { padding: 8px 12px; border-radius: 16px; color: #fff; font-size: 12px; line-height: 1.8; }
   .legend i { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 50%; vertical-align: -1px; }
   .legend .d-shop { background: var(--accent); }
   .legend .d-landmark { background: var(--landmark); }
@@ -124,6 +124,9 @@
   .offers { margin: 12px 0 0; padding: 10px 12px 10px 28px; border-radius: 10px; background: rgba(255,180,0,.10); font-size: 15px; line-height: 1.7; }
   .until { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
   .head > div:first-child { min-width: 0; }
+  .title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; }
+  .sub { font-size: 13px; font-weight: 500; color: var(--muted); }
+  #sheet .sub { color: rgba(255,255,255,.7); }
   .tools { display: flex; flex: none; gap: 6px; }
   .tools form { margin: 0; }
   .ico { display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border-radius: 50%; border: 1px solid var(--line); background: none; color: var(--text); text-decoration: none; }
@@ -360,13 +363,13 @@
     return [ul, shop.offersUntil ? el('p', { className: 'until' }, '優惠至 ' + shop.offersUntil.replace(/-/g, '/')) : null];
   }
 
-  // 說明與地址一直顯示；營業時間、電話、連結收進可展開的區塊，卡片才不會太長
+  // 地址一直顯示；說明、營業時間、電話、連結收進可展開的區塊，卡片才不會太長
   function infoBlocks(shop) {
     const blocks = [];
-    if (shop.description) blocks.push(el('p', { className: 'row desc' }, shop.description));
     if (shop.address) blocks.push(el('p', { className: 'row' }, shop.address));
     const more = [];
     const labels = [];
+    if (shop.description) { labels.push('說明'); more.push(el('p', { className: 'row desc' }, shop.description)); }
     if (shop.hours) { labels.push('營業時間'); more.push(el('p', { className: 'row' }, shop.hours)); }
     if (shop.phone) { labels.push('電話'); more.push(el('p', { className: 'row' }, '電話 ', el('a', { href: 'tel:' + shop.phone.replace(/[^\d+]/g, '') }, shop.phone))); }
     const link = httpUrl(shop.link);
@@ -376,9 +379,12 @@
   }
 
   function chips(shop) {
-    const wrap = el('div', {}, el('span', { className: 'chip' + (kindOf(shop) === 'landmark' ? ' landmark' : '') }, kindOf(shop) === 'landmark' ? '地標' : '特約'));
-    if (shop.category) wrap.append(el('span', { className: 'chip' + (kindOf(shop) === 'landmark' ? ' landmark' : '') }, shop.category));
-    return wrap;
+    return el('div', {}, el('span', { className: 'chip' + (kindOf(shop) === 'landmark' ? ' landmark' : '') }, kindOf(shop) === 'landmark' ? '地標' : '特約'));
+  }
+
+  // 名稱旁邊的子標題：分類由幹部自由填寫
+  function titleOf(shop, id) {
+    return el('div', { className: 'title' }, el('h2', { className: 'name', id }, shop.name), shop.category ? el('span', { className: 'sub' }, shop.category) : null);
   }
 
   const ICON_NAV = '<path d="M3 11l18-8-8 18-2-8z"/>';
@@ -405,7 +411,7 @@
     const offers = offerBlock(shop);
     dlg.replaceChildren(
       el('div', { className: 'head' },
-        el('div', {}, el('h2', { className: 'name', id: 'sheetTitle' }, shop.name), chips(shop)),
+        el('div', {}, titleOf(shop, 'sheetTitle'), chips(shop)),
         el('div', { className: 'tools' }, navButton(shop),
           el('form', { method: 'dialog' }, el('button', { className: 'close', 'aria-label': '關閉', onclick: () => select(null) }, '✕')))),
       ...(offers || []).filter(Boolean),
@@ -421,7 +427,7 @@
       const offers = offerBlock(s);
       return el('article', { className: 'card' },
         el('div', { className: 'head' },
-          el('div', {}, el('h2', { className: 'name' }, s.name), chips(s)),
+          el('div', {}, titleOf(s), chips(s)),
           el('div', { className: 'tools' },
             el('button', { className: 'ico', type: 'button', 'aria-label': '在地圖上查看', title: '在地圖上查看', onclick: () => { show('map'); select(s.id); } }, icon(ICON_PIN)),
             navButton(s))),
