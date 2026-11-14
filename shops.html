@@ -94,7 +94,8 @@
     border-radius: 50% 50% 50% 0; transform: rotate(-45deg); box-shadow: 0 1px 4px rgba(0,0,0,.4); }
   /* 四種地點類型各一個顏色；標記、標籤、圖例、標籤膠囊都讀 --k */
   .kind-shop { --k: #ffb400; } .kind-club { --k: #4ea1ff; } .kind-ride { --k: #34c28b; } .kind-other { --k: #9aa4b2; }
-  .pin-wrap.sel .pin { background: #fff; transform: rotate(-45deg) scale(1.25); border-color: var(--accent); }
+  /* 選取時保留類型顏色：放大、白色外框，不改底色 */
+  .pin-wrap.sel .pin { transform: rotate(-45deg) scale(1.25); border-color: #fff; box-shadow: 0 0 0 2px var(--k, var(--accent)), 0 2px 8px rgba(0,0,0,.5); }
 
   .shop-label { max-width: 190px; overflow: hidden; text-overflow: ellipsis; padding: 3px 9px; border-radius: 10px;
     color: #fff; font-size: 12px; font-weight: 600; box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 2px 8px rgba(0,0,0,.3); pointer-events: auto; cursor: pointer; }
