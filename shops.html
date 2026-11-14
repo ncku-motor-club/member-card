@@ -29,6 +29,7 @@
   /* 地圖與列表左右平移：列表排在地圖右邊，兩個畫面一起整個平移（像輪播），不是滑入；看不到的那個 visibility:hidden（同時 inert，鍵盤與讀屏跳過） */
   #stage[data-view="map"] #list { translate: 100% 0; visibility: hidden; }
   #stage[data-view="list"] #map { translate: -100% 0; visibility: hidden; }
+  #stage.panning .shop-label, #stage.panning .legend { -webkit-backdrop-filter: none; backdrop-filter: none; }
   #stage.animated #map, #stage.animated #list { transition: translate .5s cubic-bezier(.22, 1, .36, 1), visibility 0s .5s; }
   #stage.animated[data-view="map"] #map, #stage.animated[data-view="list"] #list { transition-delay: 0s; }
   #list { overflow-y: auto; overscroll-behavior: contain; padding: 14px 12px calc(var(--nav-space) + 8px); }
@@ -253,7 +254,7 @@
     renderSheet();
   }
 
-  function select(id) {
+  function select(id, { instant = false } = {}) {
     store.selectedId = id && store.byId.has(id) ? id : null;
     markers.forEach((m, sid) => { const e = m.getElement(); if (e) e.classList.toggle('sel', sid === store.selectedId); });
     renderSheet();
@@ -261,19 +262,31 @@
     if (shop && map && store.view === 'map') {
       const zoom = Math.max(map.getZoom(), 15);
       const below = L.point(0, Math.round($('sheet').offsetHeight / 2));
-      map.setView(map.unproject(map.project([shop.lat, shop.lng], zoom).add(below), zoom), zoom, { animate: !reduceMotion() });
+      map.setView(map.unproject(map.project([shop.lat, shop.lng], zoom).add(below), zoom), zoom, { animate: !instant && !reduceMotion() }); // 從列表跳過來時，畫面正在平移，地圖不再同時做動畫
     }
     syncHash();
   }
 
+  let panTimer = 0;
   function show(view) {
+    const changed = view !== store.view;
+    // 離開地圖就取消選取：回到地圖時不會一邊平移一邊又彈出彈窗
+    if (view !== 'map' && store.selectedId) {
+      store.selectedId = null;
+      markers.forEach((m) => m.getElement()?.classList.remove('sel'));
+    }
     store.view = view;
-    $('stage').dataset.view = view;
+    const stage = $('stage');
+    if (changed) { // 平移期間暫停標籤與圖例的背景模糊，每一格都重算模糊會讓動畫卡頓
+      stage.classList.add('panning'); clearTimeout(panTimer);
+      panTimer = setTimeout(() => stage.classList.remove('panning'), 560);
+    }
+    stage.dataset.view = view;
     $('map').inert = view !== 'map';
     $('list').inert = view !== 'list';
     setCurrent($('navMap'), view === 'map');
     setCurrent($('navList'), view === 'list');
-    if (view === 'map') { ensureMap(); map.invalidateSize(); renderMarkers(); }
+    if (view === 'map') ensureMap(); // 地圖一直都有大小（只是被平移出畫面），不需要每次 invalidateSize 或重畫標記
     renderSheet();
     syncHash();
   }
@@ -336,6 +349,7 @@
       return legendEl;
     };
     legend.addTo(map);
+    renderMarkers();
   }
 
   // 地點不多時一律顯示名稱；很多時要放大到一定程度才顯示，避免擠成一團
@@ -449,7 +463,7 @@
         el('div', { className: 'head' },
           el('div', {}, titleOf(s), chips(s)),
           el('div', { className: 'tools' },
-            el('button', { className: 'ico', type: 'button', 'aria-label': '在地圖上查看', title: '在地圖上查看', onclick: () => { show('map'); select(s.id); } }, icon(ICON_PIN)),
+            el('button', { className: 'ico', type: 'button', 'aria-label': '在地圖上查看', title: '在地圖上查看', onclick: () => { show('map'); select(s.id, { instant: true }); } }, icon(ICON_PIN)),
             navButton(s))),
         ...(offers || []).filter(Boolean),
         ...infoBlocks(s)
