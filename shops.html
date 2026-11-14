@@ -45,16 +45,16 @@
 
   /* 浮動玻璃導覽列：半透明底加模糊、內側高光、彈性滑動的指示膠囊 */
   nav { position: fixed; z-index: 1200; inset-inline: 0; inset-block-end: var(--nav-gap); display: flex; justify-content: center; pointer-events: none; }
-  .glass, #sheet, .legend {
-    --glass-a: .4;
+  .glass, #sheet, .legend, .shop-label {
+    --glass-a: .4; --glass-blur: 1px;
     background: linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,0) 55%), rgba(24, 26, 31, var(--glass-a));
-    -webkit-backdrop-filter: blur(1px) saturate(180%); backdrop-filter: blur(1px) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%); backdrop-filter: blur(var(--glass-blur)) saturate(180%);
     border: 1px solid rgba(255,255,255,.18);
     box-shadow: inset 0 1px 0 rgba(255,255,255,.35), inset 0 -1px 0 rgba(255,255,255,.06), 0 8px 24px rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.25);
   }
   .glass { pointer-events: auto; position: relative; isolation: isolate; display: grid; grid-template-columns: 1fr 1fr; inline-size: min(200px, calc(100% - 32px)); padding: 4px; border-radius: 999px; }
-  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .glass, #sheet, .legend { background: var(--panel); } }
-  @media (prefers-reduced-transparency: reduce) { .glass, #sheet, .legend { background: var(--panel); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .glass, #sheet, .legend, .shop-label { background: var(--panel); } }
+  @media (prefers-reduced-transparency: reduce) { .glass, #sheet, .legend, .shop-label { background: var(--panel); -webkit-backdrop-filter: none; backdrop-filter: none; } }
   .glass a {
     position: relative; min-block-size: 44px; min-inline-size: 44px; padding: 0; border-radius: 999px; scale: 1;
     color: rgba(255,255,255,.78); font-size: 12px; font-weight: 600; text-decoration: none;
@@ -82,7 +82,7 @@
     .glass a:active { scale: .94; }
   }
   @media (forced-colors: active) {
-    .glass, #sheet, .legend { border: 1px solid CanvasText; background: Canvas; }
+    .glass, #sheet, .legend, .shop-label { border: 1px solid CanvasText; background: Canvas; }
     .glass::before { border: 2px solid Highlight; background: none; box-shadow: none; }
   }
   /* 導覽列浮在地圖上，其他元件要讓開 */
@@ -94,8 +94,8 @@
   .pin.kind-landmark { background: var(--landmark); }
   .pin-wrap.sel .pin { background: #fff; transform: rotate(-45deg) scale(1.25); border-color: var(--accent); }
 
-  .shop-label { max-width: 190px; overflow: hidden; text-overflow: ellipsis; padding: 2px 8px; border: 1px solid var(--line); border-radius: 8px;
-    background: rgba(23,25,30,.94); color: #fff; font-size: 12px; font-weight: 600; box-shadow: none; pointer-events: auto; cursor: pointer; }
+  .shop-label { max-width: 190px; overflow: hidden; text-overflow: ellipsis; padding: 2px 8px; border-radius: 8px;
+    color: #fff; font-size: 12px; font-weight: 600; pointer-events: auto; cursor: pointer; }
   .shop-label::before { display: none; }
   .shop-label .tag { color: var(--accent); margin-right: 2px; }
   .labels-off .shop-label { display: none; }
@@ -103,7 +103,8 @@
   .legend i { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 50%; vertical-align: -1px; }
   .legend .d-shop { background: var(--accent); }
   .legend .d-landmark { background: var(--landmark); }
-  #sheet { --glass-a: .78; position: absolute; inset: auto 8px var(--nav-space); z-index: 1000; width: auto; max-width: none; height: auto; max-height: 62%; margin: 0; overflow-y: auto; overscroll-behavior: contain; padding: 16px;
+  #sheet, .shop-label { --glass-a: .78; --glass-blur: 3px; } /* 彈窗與地圖標籤：比導覽列、圖例更不透明、模糊 3px */
+  #sheet { position: absolute; inset: auto 8px var(--nav-space); z-index: 1000; width: auto; max-width: none; height: auto; max-height: 62%; margin: 0; overflow-y: auto; overscroll-behavior: contain; padding: 16px;
     color: var(--text); border-radius: 24px; }
   #sheet .row, #sheet .until { color: rgba(255,255,255,.8); }
   #sheet .row a { text-decoration-color: rgba(255,255,255,.5); }
