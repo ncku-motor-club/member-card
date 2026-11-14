@@ -8,7 +8,7 @@
 <style>
   :root {
     --bg: #0e0f12; --panel: #17191e; --text: #f2f2f2; --muted: #9aa0a8;
-    --accent: #ffb400; --line: #2a2d34;
+    --accent: #ffb400; --landmark: #4ea1ff; --line: #2a2d34;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
@@ -38,14 +38,27 @@
   .pin-wrap { background: none; border: 0; }
   .pin { position: absolute; left: 3px; top: 1px; width: 22px; height: 22px; background: var(--accent); border: 2px solid #111;
     border-radius: 50% 50% 50% 0; transform: rotate(-45deg); box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+  .pin.kind-landmark { background: var(--landmark); }
   .pin-wrap.sel .pin { background: #fff; transform: rotate(-45deg) scale(1.25); border-color: var(--accent); }
 
+  .shop-label { max-width: 190px; overflow: hidden; text-overflow: ellipsis; padding: 2px 8px; border: 1px solid var(--line); border-radius: 8px;
+    background: rgba(23,25,30,.94); color: #fff; font-size: 12px; font-weight: 600; box-shadow: none; pointer-events: auto; cursor: pointer; }
+  .shop-label::before { display: none; }
+  .shop-label .tag { color: var(--accent); margin-right: 2px; }
+  .labels-off .shop-label { display: none; }
+  .legend { padding: 6px 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(23,25,30,.92); color: var(--text); font-size: 12px; line-height: 1.8; }
+  .legend i { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 50%; vertical-align: -1px; }
+  .legend .d-shop { background: var(--accent); }
+  .legend .d-landmark { background: var(--landmark); }
   #sheet { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 1000; max-height: 62%; overflow-y: auto; padding: 16px;
     background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 6px 24px rgba(0,0,0,.45); }
   .head { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
   .name { margin: 0; font-size: 19px; font-weight: 700; line-height: 1.3; }
   .close { flex: none; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: none; color: var(--muted); font-size: 18px; line-height: 1; }
   .chip { display: inline-block; margin-top: 6px; padding: 2px 10px; border-radius: 999px; background: rgba(255,180,0,.15); color: var(--accent); font-size: 12px; font-weight: 700; }
+  .chip + .chip { margin-left: 6px; }
+  .chip.landmark { background: rgba(78,161,255,.16); color: var(--landmark); }
+  .section { margin: 18px 4px 8px; font-size: 13px; font-weight: 700; letter-spacing: .05em; color: var(--muted); }
   .row { margin: 10px 0 0; font-size: 14px; line-height: 1.6; color: var(--muted); white-space: pre-line; }
   .row a { color: var(--text); }
   .offers { margin: 12px 0 0; padding: 10px 12px 10px 28px; border-radius: 10px; background: rgba(255,180,0,.10); font-size: 15px; line-height: 1.7; }
@@ -83,6 +96,8 @@
   const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
   const CACHE_KEY = 'shops:cache:v1';
   const DEFAULT_CENTER = [22.9997, 120.227];
+  const LABELS_ALWAYS_MAX = 15;
+  const LABELS_MIN_ZOOM = 14;
 
   const $ = (id) => document.getElementById(id);
 
@@ -104,6 +119,8 @@
     return u.toString();
   }
 
+  function kindOf(shop) { return shop.kind === 'landmark' ? 'landmark' : 'shop'; }
+
   function httpUrl(raw) {
     try { const u = new URL(raw); return u.protocol === 'http:' || u.protocol === 'https:' ? u.href : ''; } catch (_) { return ''; }
   }
@@ -120,6 +137,7 @@
   // ===== 狀態（唯一的擁有者；地圖與列表都只讀它） =====
   const store = { shops: [], byId: new Map(), selectedId: null, view: 'map' };
   let map = null;
+  let legendEl = null;
   let markers = new Map();
 
   function setShops(shops) {
@@ -208,6 +226,23 @@
     map = L.map('map', { zoomControl: true, attributionControl: true }).setView(DEFAULT_CENTER, 14);
     L.tileLayer(TILE_URL, { maxZoom: 19, attribution: TILE_ATTRIBUTION }).addTo(map);
     map.on('click', () => select(null));
+    map.on('zoomend', updateLabels);
+    const legend = L.control({ position: 'topright' });
+    legend.onAdd = () => {
+      legendEl = el('div', { className: 'legend', hidden: true },
+        el('div', {}, el('i', { className: 'd-shop' }), '特約店家'),
+        el('div', {}, el('i', { className: 'd-landmark' }), '社團地標'));
+      L.DomEvent.disableClickPropagation(legendEl);
+      return legendEl;
+    };
+    legend.addTo(map);
+  }
+
+  // 地點不多時一律顯示名稱；很多時要放大到一定程度才顯示，避免擠成一團
+  function updateLabels() {
+    if (!map) return;
+    const show = store.shops.length <= LABELS_ALWAYS_MAX || map.getZoom() >= LABELS_MIN_ZOOM;
+    $('map').classList.toggle('labels-off', !show);
   }
 
   function renderMarkers() {
@@ -215,11 +250,20 @@
     markers.forEach((m) => m.remove());
     markers = new Map();
     store.shops.forEach((s) => {
-      const icon = L.divIcon({ className: 'pin-wrap' + (s.id === store.selectedId ? ' sel' : ''), html: '<span class="pin"></span>', iconSize: [28, 28], iconAnchor: [14, 28] });
+      const kind = kindOf(s);
+      const icon = L.divIcon({ className: 'pin-wrap' + (s.id === store.selectedId ? ' sel' : ''), html: '<span class="pin kind-' + kind + '"></span>', iconSize: [28, 28], iconAnchor: [14, 28] });
       const m = L.marker([s.lat, s.lng], { icon, title: s.name }).addTo(map);
       m.on('click', (e) => { L.DomEvent.stopPropagation(e); select(s.id); });
+      m.bindTooltip(el('span', {}, kind === 'shop' ? el('span', { className: 'tag' }, '「特約」') : '', s.name),
+        { permanent: true, interactive: true, direction: 'right', offset: [12, -14], className: 'shop-label' });
+      m.on('tooltipopen', (e) => {
+        const t = e.tooltip.getElement();
+        if (t && !t.dataset.bound) { t.dataset.bound = '1'; t.addEventListener('click', (ev) => { L.DomEvent.stopPropagation(ev); select(s.id); }); }
+      });
       markers.set(s.id, m);
     });
+    if (legendEl) legendEl.hidden = !store.shops.some((s) => kindOf(s) === 'landmark');
+    updateLabels();
   }
 
   function fitAll() {
@@ -246,6 +290,12 @@
     return rows;
   }
 
+  function chips(shop) {
+    const wrap = el('div', {}, el('span', { className: 'chip' + (kindOf(shop) === 'landmark' ? ' landmark' : '') }, kindOf(shop) === 'landmark' ? '地標' : '特約'));
+    if (shop.category) wrap.append(el('span', { className: 'chip' + (kindOf(shop) === 'landmark' ? ' landmark' : '') }, shop.category));
+    return wrap;
+  }
+
   function navButton(shop) {
     return el('a', { className: 'btn', href: navigationUrl(shop), target: '_blank', rel: 'noopener noreferrer' }, '用 Google 地圖導航');
   }
@@ -258,7 +308,7 @@
     const offers = offerBlock(shop);
     sheet.replaceChildren(
       el('div', { className: 'head' },
-        el('div', {}, el('h2', { className: 'name' }, shop.name), shop.category ? el('span', { className: 'chip' }, shop.category) : ''),
+        el('div', {}, el('h2', { className: 'name' }, shop.name), chips(shop)),
         el('button', { className: 'close', type: 'button', 'aria-label': '關閉', onclick: () => select(null) }, '✕')),
       ...(offers || []).filter(Boolean),
       ...infoRows(shop),
@@ -269,18 +319,24 @@
   function renderList() {
     const list = $('list');
     if (!store.shops.length) { list.replaceChildren(el('div', { className: 'empty' }, '目前還沒有特約店家。')); return; }
-    list.replaceChildren(...store.shops.map((s) => {
+    const card = (s) => {
       const offers = offerBlock(s);
       return el('article', { className: 'card' },
         el('h2', { className: 'name' }, s.name),
-        s.category ? el('span', { className: 'chip' }, s.category) : '',
+        chips(s),
         ...(offers || []).filter(Boolean),
         ...infoRows(s),
         el('div', { className: 'actions' },
           el('button', { className: 'btn ghost', type: 'button', onclick: () => { show('map'); select(s.id); } }, '在地圖上查看'),
           navButton(s))
       );
-    }));
+    };
+    const shops = store.shops.filter((s) => kindOf(s) === 'shop');
+    const landmarks = store.shops.filter((s) => kindOf(s) === 'landmark');
+    const both = shops.length && landmarks.length;
+    list.replaceChildren(
+      ...(both ? [el('div', { className: 'section' }, '特約店家')] : []), ...shops.map(card),
+      ...(landmarks.length ? [el('div', { className: 'section' }, '常用地標')] : []), ...landmarks.map(card));
   }
 
   // ===== 啟動 =====
