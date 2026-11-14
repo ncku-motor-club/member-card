@@ -209,7 +209,7 @@
   // 類型：順序就是列表分區的順序。後端舊版輸出的 landmark 當作其他；不認得的一律當特約店家
   const KINDS = [['shop', '特約店家'], ['club', '社團據點'], ['ride', '騎乘地標'], ['other', '其他']];
   const KIND_LABEL = Object.fromEntries(KINDS);
-  const KIND_TAG = { shop: '特約', club: '據點', ride: '騎乘地標', other: '其他' }; // 地圖標籤用的短名稱
+  const KIND_TAG = { shop: '特約', club: '據點', ride: '騎乘地標' }; // 地圖標籤用的短名稱；其他不加標籤，只顯示名稱
   function kindOf(shop) { return shop.kind === 'landmark' ? 'other' : Object.hasOwn(KIND_LABEL, shop.kind) ? shop.kind : 'shop'; }
 
   function httpUrl(raw) {
@@ -340,7 +340,7 @@
       const icon = L.divIcon({ className: 'pin-wrap' + (s.id === store.selectedId ? ' sel' : ''), html: '<span class="pin kind-' + kind + '"></span>', iconSize: [28, 28], iconAnchor: [14, 28] });
       const m = L.marker([s.lat, s.lng], { icon, title: s.name }).addTo(map);
       m.on('click', (e) => { L.DomEvent.stopPropagation(e); select(s.id); });
-      m.bindTooltip(el('span', {}, el('span', { className: 'tag kind-' + kind }, KIND_TAG[kind]), s.name),
+      m.bindTooltip(el('span', {}, kind === 'other' ? '' : el('span', { className: 'tag kind-' + kind }, KIND_TAG[kind]), s.name),
         { permanent: true, interactive: true, direction: 'right', offset: [12, -14], className: 'shop-label' });
       m.on('tooltipopen', (e) => {
         const t = e.tooltip.getElement();
