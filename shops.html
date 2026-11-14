@@ -94,11 +94,13 @@
   }
 
   // ===== 純函式 =====
+  // 優先用幹部貼的 Google 地圖店家連結（落點最準）；沒有才退回座標。座標只用來在 OpenStreetMap 上擺標記
   function navigationUrl(shop) {
+    const link = httpUrl(shop.mapLink);
+    if (link) return link;
     const u = new URL('https://www.google.com/maps/dir/');
     u.searchParams.set('api', '1');
     u.searchParams.set('destination', shop.lat + ',' + shop.lng);
-    if (shop.placeId) u.searchParams.set('destination_place_id', shop.placeId);
     return u.toString();
   }
 
