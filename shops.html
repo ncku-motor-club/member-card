@@ -4,9 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0e0f12">
 <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 <link rel="preconnect" href="https://tile.openstreetmap.org">
 <link rel="preconnect" href="https://script.google.com" crossorigin>
+<script>
+  // 在 <head> 就開始抓店家資料，不用等地圖函式庫（Leaflet）下載完；之後的主程式直接接手這個請求
+  const SHOPS_API = 'https://script.google.com/macros/s/AKfycbxp8GAxZ0OWR-gTlE1UrK4EGLLByWPSqFrJ-lj-O8kcljgEfpH6oh2YpJ-X00ISN2EZ3Q/exec';
+  let earlyShops = fetch(SHOPS_API, { signal: AbortSignal.timeout?.(15000) });
+  earlyShops.catch(() => {}); // 先吞掉錯誤，避免主程式接手前出現「未處理的拒絕」；真正的錯誤由主程式處理
+</script>
 <title>成大機動車研究社 地圖</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" integrity="sha384-c6Rcwz4e4CITMbu/NBmnNS8yN2sC3cUElMEMfP3vqqKFp7GOYaaBBCqmaWBjmkjb" crossorigin="anonymous">
 <style>
@@ -127,12 +134,12 @@
   #sheet .offers { background: rgba(255,180,0,.16); }
   .head form { margin: 0; }
   .head { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
-  .name { margin: 0; font-size: 19px; font-weight: 700; line-height: 1.3; }
+  .name { margin: 0; font-size: 19px; font-weight: 700; line-height: 1.3; text-wrap: balance; }
   .close { flex: none; width: 36px; height: 36px; padding: 0; border-radius: 50%; border: 1px solid var(--line); background: none; color: var(--muted); font-size: 18px; line-height: 1; }
   .chip { display: inline-block; margin-top: 6px; padding: 2px 10px; border-radius: 999px; background: color-mix(in srgb, var(--k, var(--accent)) 16%, transparent); color: var(--k, var(--accent)); font-size: 12px; font-weight: 700; }
   .chip + .chip { margin-left: 6px; }
   .section { margin: 18px 4px 8px; font-size: 13px; font-weight: 700; letter-spacing: .05em; color: var(--muted); }
-  .row { margin: 10px 0 0; font-size: 14px; line-height: 1.6; color: var(--muted); white-space: pre-line; }
+  .row { margin: 10px 0 0; font-size: 14px; line-height: 1.6; color: var(--muted); white-space: pre-line; text-wrap: pretty; }
   .row a { color: var(--text); }
   .row.desc { margin-top: 12px; font-size: 15px; color: var(--text); }
   #sheet .row.desc { color: #fff; }
@@ -148,7 +155,14 @@
   .ico svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
   .ico.primary { background: var(--accent); border-color: var(--accent); color: #111; }
   #sheet .ico:not(.primary) { border-color: rgba(255,255,255,.3); background: rgba(255,255,255,.08); }
-  .ico:focus-visible, .more summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* 所有可操作元件都有鍵盤焦點框（不只這兩個）；滑鼠點擊不會出現 */
+  :where(a, button, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* 有滑鼠的裝置才有懸停回饋；手機只有按下回饋 */
+  @media (hover: hover) {
+    .ico:hover, .btn:hover { filter: brightness(1.12); }
+    .ico:not(.primary):hover { border-color: rgba(255,255,255,.45); }
+    .more summary:hover { color: var(--text); }
+  }
   .more { margin-top: 10px; }
   .more summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; list-style: none; cursor: pointer; font-size: 13px; color: var(--muted); }
   .more summary::-webkit-details-marker { display: none; }
@@ -157,7 +171,7 @@
   /* 展開／收合動畫：把內容區塊的高度在 0 與 auto 之間過渡（需要 interpolate-size；不支援的瀏覽器就沒有動畫，照常展開收合） */
   @supports selector(::details-content) {
     :root { interpolate-size: allow-keywords; }
-    .more::details-content { display: flow-root; /* 讓內容的 margin 不要穿出去，否則動畫結束、套用 content-visibility 時會多出 2px 的跳動 */ block-size: 0; overflow: clip; transition: block-size .32s cubic-bezier(.22, 1, .36, 1), content-visibility .32s allow-discrete; }
+    .more::details-content { contain: layout; /* 讓 layout 包含狀態在展開與收合時一致，否則動畫結束、套用 content-visibility 時內容的 margin 會造成 2px 跳動 */ block-size: 0; overflow: clip; transition: block-size .32s cubic-bezier(.22, 1, .36, 1), content-visibility .32s allow-discrete; }
     .more[open]::details-content { block-size: auto; }
     @media (prefers-reduced-motion: reduce) { .more::details-content { transition: none; } }
   }
@@ -193,7 +207,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" integrity="sha384-NElt3Op+9NBMCYaef5HxeJmU4Xeard/Lku8ek6hoPTvYkQPh3zLIrJP7KiRocsxO" crossorigin="anonymous"></script>
 <script>
   // ===== 設定（不是機密，可以放在公開的 repo） =====
-  const SHOPS_API = 'https://script.google.com/macros/s/AKfycbxp8GAxZ0OWR-gTlE1UrK4EGLLByWPSqFrJ-lj-O8kcljgEfpH6oh2YpJ-X00ISN2EZ3Q/exec';
   const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
   const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
   const CACHE_KEY = 'shops:cache:v1';
@@ -309,7 +322,9 @@
 
   // ===== 資料 =====
   async function fetchShops() {
-    const res = await fetch(SHOPS_API, { signal: AbortSignal.timeout?.(15000) });
+    const req = earlyShops ?? fetch(SHOPS_API, { signal: AbortSignal.timeout?.(15000) }); // 第一次用 <head> 已經發出的請求，「重新載入」才重新抓
+    earlyShops = null;
+    const res = await req;
     const data = await res.json();
     if (!data.ok || !Array.isArray(data.shops)) throw new Error(data.error || 'BAD_RESPONSE');
     return data.shops;
