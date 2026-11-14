@@ -3,23 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<link rel="preconnect" href="https://script.google.com" crossorigin>
 <title>成大機研社 特約社員證</title>
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <style>
   :root {
     --bg: #0e0f12; --panel: #17191e; --text: #f2f2f2; --muted: #9aa0a8;
     --accent: #ffb400; --ok: #2ecc71; --bad: #e74c3c; --line: #2a2d34;
+    color-scheme: dark; accent-color: var(--accent);
   }
   * { box-sizing: border-box; }
   body {
-    margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
-    font-family: -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
-    display: flex; justify-content: center; padding: 20px 12px;
+    margin: 0; min-height: 100dvh; background: var(--bg); color: var(--text);
+    font-family: system-ui, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    display: flex; justify-content: center;
+    padding: max(20px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
   }
   main { width: 100%; max-width: 560px; }
   h1 { font-size: 18px; margin: 0 0 16px; color: var(--muted); font-weight: 500; text-align: center; }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px; }
-  .hidden { display: none !important; }
+  [hidden] { display: none !important; }
 
   /* 社員證 */
   .card {
@@ -27,10 +31,12 @@
     background: repeating-linear-gradient(45deg, #1b1d22 0 6px, #202329 6px 12px);
     border: 1px solid #33363e;
   }
-  .card::after { /* 掃光動畫：方便店員一眼看出不是靜態截圖，但不是防偽 */
-    content: ""; position: absolute; inset: -50%;
+  .card::after { /* 掃光動畫：方便店員一眼看出不是靜態截圖，但不是防偽；偏好減少動態時整個不顯示，時鐘仍會走 */
+    content: ""; position: absolute; inset: -50%; display: none; pointer-events: none;
     background: linear-gradient(100deg, transparent 40%, rgba(255,255,255,.10) 50%, transparent 60%);
-    animation: sheen 3s linear infinite; pointer-events: none;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .card::after { display: block; animation: sheen 3s linear infinite; }
   }
   @keyframes sheen { from { transform: translateX(-60%); } to { transform: translateX(60%); } }
   .club { font-size: clamp(15px, 4.2vw, 20px); letter-spacing: .08em; color: var(--accent); font-weight: 700; }
@@ -45,20 +51,22 @@
   .clock { font-family: ui-monospace, Menlo, monospace; color: var(--text); }
   .state { margin-top: 28px; padding: 16px; border-radius: 14px; text-align: center; font-weight: 800; font-size: clamp(20px, 5.5vw, 28px); }
   .refresh { margin-top: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 14px; }
-  .refresh button { width: auto; margin: 0; padding: 8px 16px; font-size: 14px; background: transparent; color: var(--text); border: 1px solid var(--line); white-space: nowrap; }
+  .refresh button { width: auto; min-height: 44px; margin: 0; padding: 8px 16px; font-size: 14px; background: transparent; color: var(--text); border: 1px solid var(--line); white-space: nowrap; }
   .state.valid { background: rgba(46,204,113,.15); color: var(--ok); }
   .state.expired, .state.suspended { background: rgba(231,76,60,.15); color: var(--bad); }
   .hint { color: var(--muted); font-size: 13px; text-align: center; margin-top: 14px; line-height: 1.6; }
 
   /* 表單 */
   label { display: block; font-size: 14px; margin: 14px 0 6px; }
+  form { margin: 0; }
   input {
-    width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--line);
-    background: #0f1115; color: var(--text); font-size: 16px; text-transform: uppercase;
+    width: 100%; min-height: 48px; padding: 12px; border-radius: 10px; border: 1px solid var(--line);
+    background: #0f1115; color: var(--text); font: inherit; font-size: max(1rem, 1em); text-transform: uppercase;
   }
+  input:user-invalid { border-color: var(--bad); }
   button {
-    width: 100%; margin-top: 16px; padding: 13px; border: 0; border-radius: 10px;
-    background: var(--accent); color: #111; font-size: 16px; font-weight: 700;
+    width: 100%; min-height: 48px; margin-top: 16px; padding: 13px; border: 0; border-radius: 10px;
+    background: var(--accent); color: #111; font: inherit; font-size: 16px; font-weight: 700;
   }
   button:disabled { opacity: .5; }
   .link { background: none; color: var(--muted); font-weight: 400; text-decoration: underline; margin-top: 10px; padding: 6px; }
@@ -78,7 +86,7 @@
   <div id="loading" class="panel"><p class="msg">載入中…</p></div>
 
   <!-- 社員證 -->
-  <div id="cardView" class="hidden">
+  <div id="cardView" hidden>
     <div class="card">
       <div class="club">成大機動車研究社<small>NCKU MOTOR CLUB</small></div>
       <div class="role" id="cRole"></div>
@@ -92,32 +100,32 @@
     </div>
     <div class="refresh">
       <span id="refreshInfo"></span>
-      <button id="btnRefresh">立即更新</button>
+      <button id="btnRefresh" type="button">立即更新</button>
     </div>
     <p class="hint">結帳時請同時出示<b>本人學生證</b>，<br>店家核對姓名、學號一致即可。</p>
   </div>
 
   <!-- 綁定 -->
-  <div id="bindView" class="panel hidden">
-    <div id="step1">
+  <div id="bindView" class="panel" hidden>
+    <form id="step1">
       <p class="msg">第一次使用需要綁定。<b>在校學生</b>請輸入學號，驗證碼會寄到你的成大學校信箱（學號@gs.ncku.edu.tw）。</p>
       <label for="sid1">學號</label>
-      <input id="sid1" autocomplete="off" placeholder="例如 E14081234">
-      <button id="btnCode">寄送驗證碼</button>
+      <input id="sid1" name="studentId" required pattern="[A-Za-z][A-Za-z0-9]{8}" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="send" placeholder="例如 E14081234">
+      <button id="btnCode" type="submit">寄送驗證碼</button>
       <div class="alt-box">
         <p><b>OB 畢業學長姊、校外參與</b>沒有學校信箱，<b>請按下面這個按鈕</b>，改用幹部給你的編號與綁定碼。</p>
-        <button class="alt" id="toStep2">OB／校外參與請按這裡<small>我有幹部給的編號與綁定碼</small></button>
+        <button class="alt" id="toStep2" type="button">OB／校外參與請按這裡<small>我有幹部給的編號與綁定碼</small></button>
       </div>
-    </div>
-    <div id="step2" class="hidden">
+    </form>
+    <form id="step2" hidden>
       <label for="sid2">學號，或幹部給你的編號（例如 OB0000001、EX0000001）</label>
-      <input id="sid2" autocomplete="off">
+      <input id="sid2" name="studentId" required pattern="[A-Za-z][A-Za-z0-9]{8}" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="next">
       <label for="code">學校信箱收到的 6 位數驗證碼，或幹部給的綁定碼</label>
-      <input id="code" autocomplete="one-time-code" inputmode="text">
-      <button id="btnBind">完成綁定</button>
-      <button class="link" id="toStep1">回上一步</button>
-    </div>
-    <p class="msg" id="bindMsg"></p>
+      <input id="code" name="code" required minlength="6" autocomplete="one-time-code" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="done">
+      <button id="btnBind" type="submit">完成綁定</button>
+      <button class="link" id="toStep1" type="button">回上一步</button>
+    </form>
+    <p class="msg" id="bindMsg" role="status"></p>
     <p class="msg">沒收到驗證碼？請先看垃圾信件匣。超過 5 分鐘仍沒有，請私訊「成大機動車研究社」官方帳號，請幹部確認你的名冊資料，或向幹部索取綁定碼。</p>
     <div class="privacy">
       個資說明：本社蒐集你的姓名、學號與 LINE 識別碼，僅用於特約店家社員身分核對。
@@ -126,7 +134,7 @@
     </div>
   </div>
 
-  <div id="errorView" class="panel hidden"><p class="msg err" id="errorMsg"></p></div>
+  <div id="errorView" class="panel" hidden><p class="msg err" id="errorMsg" role="alert"></p></div>
 </main>
 
 <script>
@@ -136,13 +144,14 @@
 
   const $ = (id) => document.getElementById(id);
   const views = ['loading', 'cardView', 'bindView', 'errorView'];
-  function show(id) { views.forEach(v => $(v).classList.toggle('hidden', v !== id)); }
+  function show(id) { views.forEach((v) => { $(v).hidden = v !== id; }); }
   function showError(text) { $('errorMsg').textContent = text; show('errorView'); }
   function setMsg(text, isErr) { $('bindMsg').textContent = text; $('bindMsg').classList.toggle('err', !!isErr); }
 
   async function api(action, payload) {
     const res = await fetch(GAS_URL, {
       method: 'POST',
+      signal: AbortSignal.timeout?.(15000),
       // 用 text/plain 避免 CORS 預檢，GAS 才收得到
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(Object.assign({ action, idToken: liff.getIDToken() }, payload || {})),
@@ -175,46 +184,61 @@
     show('cardView');
   }
 
-  function tick() {
-    const now = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-    $('clock').textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-  }
+  const timeFmt = new Intl.DateTimeFormat('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
+  function tick() { $('clock').textContent = timeFmt.format(); }
   setInterval(tick, 1000); tick();
 
-  function goStep(n) {
-    $('step1').classList.toggle('hidden', n !== 1);
-    $('step2').classList.toggle('hidden', n !== 2);
+  // 使用者主動換步驟時才移動焦點；載入時不搶焦點，避免手機一開頁就跳出鍵盤
+  function goStep(n, { focus = false } = {}) {
+    $('step1').hidden = n !== 1;
+    $('step2').hidden = n !== 2;
     if (n === 2 && !$('sid2').value) $('sid2').value = $('sid1').value.trim().toUpperCase();
+    if (focus) (n === 1 ? $('sid1') : $('sid2').value ? $('code') : $('sid2')).focus();
   }
 
-  $('toStep2').onclick = () => { setMsg(''); goStep(2); };
-  $('toStep1').onclick = () => { setMsg(''); goStep(1); };
+  // 原生驗證訊息一律顯示在狀態列，不依賴瀏覽器是否跳出提示泡泡
+  const VALIDITY_TEXT = {
+    valueMissing: '請輸入這個欄位',
+    patternMismatch: '格式是一個英文字母加八碼英數，例如 E14081234',
+    tooShort: '至少要 6 個字元',
+  };
+  for (const form of [$('step1'), $('step2')]) {
+    form.addEventListener('invalid', (e) => {
+      const input = e.target;
+      if (input !== form.querySelector(':invalid')) return; // 只回報第一個無效欄位，和瀏覽器移動焦點的欄位一致
+      const key = Object.keys(VALIDITY_TEXT).find((k) => input.validity[k]);
+      if (key) input.setCustomValidity(VALIDITY_TEXT[key]);
+      setMsg(input.validationMessage, true);
+    }, true);
+    form.addEventListener('input', (e) => e.target.setCustomValidity?.(''));
+  }
 
-  $('btnCode').onclick = async () => {
-    const sid = $('sid1').value.trim().toUpperCase();
-    if (!sid) return setMsg('請輸入學號', true);
+  $('toStep2').addEventListener('click', () => { setMsg(''); goStep(2, { focus: true }); });
+  $('toStep1').addEventListener('click', () => { setMsg(''); goStep(1, { focus: true }); });
+
+  $('step1').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    setMsg('');
     $('btnCode').disabled = true;
     try {
-      const r = await api('requestCode', { studentId: sid });
-      if (r.ok) { setMsg(r.message); goStep(2); }
+      const r = await api('requestCode', { studentId: $('sid1').value.trim().toUpperCase() });
+      if (r.ok) { setMsg(r.message); goStep(2, { focus: true }); }
       else setMsg(r.message, true);
     } catch (_) { setMsg('連線失敗，請稍後再試', true); }
     $('btnCode').disabled = false;
-  };
+  });
 
-  $('btnBind').onclick = async () => {
-    const sid = $('sid2').value.trim().toUpperCase();
-    const code = $('code').value.trim().toUpperCase();
-    if (!sid || !code) return setMsg('請輸入學號與驗證碼', true);
+  $('step2').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    setMsg('');
     $('btnBind').disabled = true;
     try {
-      const r = await api('bind', { studentId: sid, code });
+      const r = await api('bind', { studentId: $('sid2').value.trim().toUpperCase(), code: $('code').value.trim().toUpperCase() });
       if (r.ok) renderCard(r.card);
       else setMsg(r.message, true);
     } catch (_) { setMsg('連線失敗，請稍後再試', true); }
     $('btnBind').disabled = false;
-  };
+  });
 
   // 每 3 分鐘、按「立即更新」、或從背景回到前景時重新取卡，停權或過期才會即時反映。
   // 自動更新只在社員證畫面且頁面可見時進行；失敗就保留現有畫面，等下一輪。
@@ -224,14 +248,13 @@
 
   function renderRefresh() {
     const s = Math.max(0, Math.ceil((nextAt - Date.now()) / 1000));
-    const t = new Date(lastAt);
     $('refreshInfo').textContent = busy ? '更新中…'
-      : (failed ? '更新失敗，' : `最後更新 ${p2(t.getHours())}:${p2(t.getMinutes())}:${p2(t.getSeconds())}，`)
+      : (failed ? '更新失敗，' : `最後更新 ${timeFmt.format(lastAt)}，`)
         + `${Math.floor(s / 60)}:${p2(s % 60)} 後自動更新`;
   }
 
   async function refreshCard(manual) {
-    if (busy || $('cardView').classList.contains('hidden') || (manual !== true && document.hidden)) return;
+    if (busy || $('cardView').hidden || (manual !== true && document.hidden)) return;
     busy = true; $('btnRefresh').disabled = true; renderRefresh();
     let ok = false;
     try {
@@ -243,7 +266,7 @@
     if (!ok) { failed = true; nextAt = Date.now() + REFRESH_MS; }
     busy = false; $('btnRefresh').disabled = false; renderRefresh();
   }
-  $('btnRefresh').onclick = () => refreshCard(true);
+  $('btnRefresh').addEventListener('click', () => refreshCard(true));
   setInterval(() => { if (Date.now() >= nextAt) refreshCard(); renderRefresh(); }, 1000);
   document.addEventListener('visibilitychange', () => refreshCard());
 
