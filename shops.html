@@ -103,6 +103,20 @@
   /* 導覽列浮在地圖上，其他元件要讓開 */
   .leaflet-bottom { bottom: var(--nav-space); }
 
+  /* 寬螢幕（電腦、橫放的平板）：左邊列表、右邊地圖並排，不需要導覽列、平移與彈窗；手機與窄螢幕完全不受影響 */
+  @media (min-width: 900px) {
+    :root { --nav-space: 12px; }
+    nav, #sheet { display: none !important; }
+    #stage { display: grid; grid-template-columns: minmax(340px, 380px) 1fr; }
+    #map, #list { position: relative; inset: auto; translate: none !important; opacity: 1 !important; visibility: visible !important; transition: none !important; }
+    /* #map 必須維持 relative（不能 static）：Leaflet 的圖層是 absolute，static 會讓它們跑到整個視窗的左上角去，蓋住列表 */
+    #list { grid-area: 1 / 1; border-inline-end: 1px solid var(--line); padding-block-end: 16px; }
+    #map { grid-area: 1 / 2; }
+    .ico.to-map { display: none; }
+    .card { cursor: pointer; }
+    .card.sel { border-color: var(--k, var(--accent)); box-shadow: 0 0 0 1px var(--k, var(--accent)); }
+  }
+
   .pin-wrap { background: none; border: 0; }
   .pin { position: absolute; left: 3px; top: 1px; width: 22px; height: 22px; background: var(--k, var(--accent)); border: 2px solid #111;
     border-radius: 50% 50% 50% 0; transform: rotate(-45deg); box-shadow: 0 1px 4px rgba(0,0,0,.4); }
@@ -212,6 +226,8 @@
   const CACHE_KEY = 'shops:cache:v1';
   const DEFAULT_CENTER = [22.9997, 120.227];
   const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const wideQuery = matchMedia('(min-width: 900px)'); // 寬螢幕：列表與地圖並排
+  const isWide = () => wideQuery.matches;
   const LABELS_ALWAYS_MAX = 15;
   const LABELS_MIN_ZOOM = 14;
 
@@ -279,20 +295,29 @@
     markers.forEach((m, sid) => { const e = m.getElement(); if (e) e.classList.toggle('sel', sid === store.selectedId); });
     renderSheet();
     const shop = store.byId.get(store.selectedId);
-    if (shop && map && store.view === 'map') {
+    if (shop && map && (store.view === 'map' || isWide())) {
       const zoom = Math.max(map.getZoom(), 15);
       const below = L.point(0, Math.round($('sheet').offsetHeight / 2));
       const target = map.unproject(map.project([shop.lat, shop.lng], zoom).add(below), zoom);
       map.setView(target, zoom, { animate: !instant && !reduceMotion() }); // 從列表跳過來時，畫面正在平移，地圖不再同時做動畫
     }
+    syncCards(true);
     syncHash();
+  }
+
+  // 寬螢幕：被選取的地點在左邊列表也要標示出來，並捲到看得見的位置
+  function syncCards(scroll = false) {
+    document.querySelectorAll('#list .card').forEach((c) => c.classList.toggle('sel', c.dataset.id === store.selectedId));
+    if (scroll && isWide() && store.selectedId) {
+      document.querySelector('#list .card.sel')?.scrollIntoView({ block: 'nearest', behavior: reduceMotion() ? 'auto' : 'smooth' });
+    }
   }
 
   let panTimer = 0;
   function show(view) {
     const changed = view !== store.view;
     // 離開地圖就取消選取：回到地圖時不會一邊平移一邊又彈出彈窗
-    if (view !== 'map' && store.selectedId) {
+    if (view !== 'map' && store.selectedId && !isWide()) {
       store.selectedId = null;
       markers.forEach((m) => m.getElement()?.classList.remove('sel'));
     }
@@ -303,11 +328,11 @@
       panTimer = setTimeout(() => stage.classList.remove('panning'), 560);
     }
     stage.dataset.view = view;
-    $('map').inert = view !== 'map';
-    $('list').inert = view !== 'list';
+    $('map').inert = !isWide() && view !== 'map';
+    $('list').inert = !isWide() && view !== 'list';
     setCurrent($('navMap'), view === 'map');
     setCurrent($('navList'), view === 'list');
-    if (view === 'map') ensureMap(); // 地圖一直都有大小（只是被平移出畫面），不需要每次 invalidateSize 或重畫標記
+    if (view === 'map' || isWide()) ensureMap(); // 地圖一直都有大小（只是被平移出畫面），不需要每次 invalidateSize 或重畫標記
     renderSheet();
     syncHash();
   }
@@ -461,7 +486,7 @@
   function renderSheet() {
     const shop = store.byId.get(store.selectedId);
     const dlg = $('sheet');
-    if (!shop || store.view !== 'map') {
+    if (!shop || store.view !== 'map' || isWide()) {
       if (dlg.open) dlg.close(); // 內容先留著，讓向下滑出的動畫看得到；下次開啟時會整個換掉
       return;
     }
@@ -482,11 +507,11 @@
     if (!store.shops.length) { list.replaceChildren(el('div', { className: 'empty' }, '目前還沒有地點。')); return; }
     const card = (s) => {
       const offers = offerBlock(s);
-      return el('article', { className: 'card' },
+      return el('article', { className: 'card', 'data-id': s.id, onclick: (e) => { if (isWide() && !e.target.closest('a, button, summary')) select(s.id); } },
         el('div', { className: 'head' },
           el('div', {}, titleOf(s), chips(s)),
           el('div', { className: 'tools' },
-            el('button', { className: 'ico', type: 'button', 'aria-label': '在地圖上查看', title: '在地圖上查看', onclick: () => { show('map'); select(s.id, { instant: true }); } }, icon(ICON_PIN)),
+            el('button', { className: 'ico to-map', type: 'button', 'aria-label': '在地圖上查看', title: '在地圖上查看', onclick: () => { show('map'); select(s.id, { instant: true }); } }, icon(ICON_PIN)),
             navButton(s))),
         ...(offers || []).filter(Boolean),
         ...infoBlocks(s)
@@ -494,6 +519,7 @@
     };
     const groups = KINDS.map(([k, label]) => [label, store.shops.filter((s) => kindOf(s) === k)]).filter(([, items]) => items.length);
     list.replaceChildren(...groups.flatMap(([label, items]) => [...(groups.length > 1 ? [el('div', { className: 'section' }, label)] : []), ...items.map(card)]));
+    syncCards();
   }
 
 
@@ -535,6 +561,8 @@
   $('sheet').addEventListener('close', () => {
     if (store.selectedId && store.view === 'map') select(null);
   });
+  // 視窗寬窄切換（旋轉平板、拉動視窗）：重新套用畫面狀態，地圖重算大小
+  wideQuery.addEventListener('change', () => { show(store.view); map?.invalidateSize(); });
   window.addEventListener('hashchange', () => { const h = parseHash(location.hash); if (h.view !== store.view || h.shopId !== store.selectedId) applyHash(); });
   load();
 </script>
