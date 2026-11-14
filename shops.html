@@ -154,6 +154,13 @@
   .more summary::-webkit-details-marker { display: none; }
   .more summary::after { content: ""; flex: none; inline-size: 8px; block-size: 8px; margin-inline-end: 4px; border-inline-end: 2px solid currentColor; border-block-end: 2px solid currentColor; rotate: 45deg; translate: 0 -2px; transition: rotate .2s; }
   .more[open] summary::after { rotate: -135deg; translate: 0 2px; }
+  /* 展開／收合動畫：把內容區塊的高度在 0 與 auto 之間過渡（需要 interpolate-size；不支援的瀏覽器就沒有動畫，照常展開收合） */
+  @supports selector(::details-content) {
+    :root { interpolate-size: allow-keywords; }
+    .more::details-content { block-size: 0; overflow: clip; transition: block-size .32s cubic-bezier(.22, 1, .36, 1), content-visibility .32s allow-discrete; }
+    .more[open]::details-content { block-size: auto; }
+    @media (prefers-reduced-motion: reduce) { .more::details-content { transition: none; } }
+  }
   #sheet .more summary { color: rgba(255,255,255,.7); }
   .more .row:first-of-type { margin-top: 2px; }
   @media (prefers-reduced-motion: reduce) { .more summary::after { transition: none; } }
