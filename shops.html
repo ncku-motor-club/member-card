@@ -283,10 +283,10 @@
       const zoom = Math.max(map.getZoom(), 15);
       const below = L.point(0, Math.round($('sheet').offsetHeight / 2));
       const target = map.unproject(map.project([shop.lat, shop.lng], zoom).add(below), zoom);
-      // 飛越動畫：不管縮多小、離多遠都有動畫（setView 在縮放差距超過 4 級或距離太遠時會直接跳過動畫）。
+      // 縮得再小、離得再遠也要有動畫：animate:true 略過「目標要在畫面內」的判斷，上限由 zoomAnimationThreshold 放寬。
+      // 這是單一方向的 CSS 縮放平移（GPU），不像 flyTo 先拉遠再拉近、每一格都由 JS 重算，手機上不會有拉扯感。
       // 從列表跳過來時畫面正在平移，地圖不再同時做動畫；減少動態效果時也不動畫
-      if (instant || reduceMotion()) map.setView(target, zoom, { animate: false });
-      else map.flyTo(target, zoom);
+      map.setView(target, zoom, { animate: !instant && !reduceMotion() ? true : false });
     }
     syncHash();
   }
@@ -364,7 +364,7 @@
   function ensureMap() {
     if (map) return;
     const animate = !reduceMotion();
-    map = L.map('map', { zoomControl: true, attributionControl: true, zoomAnimation: animate, fadeAnimation: animate, markerZoomAnimation: animate }).setView(DEFAULT_CENTER, 14);
+    map = L.map('map', { zoomAnimationThreshold: 12, zoomControl: true, attributionControl: true, zoomAnimation: animate, fadeAnimation: animate, markerZoomAnimation: animate }).setView(DEFAULT_CENTER, 14);
     L.tileLayer(TILE_URL, { maxZoom: 19, attribution: TILE_ATTRIBUTION }).addTo(map);
     map.on('click', () => select(null));
     map.on('zoomend', updateLabels);
