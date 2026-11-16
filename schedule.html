@@ -18,7 +18,7 @@
     --bg: #0e0f12; --panel: #17191e; --text: #f2f2f2; --muted: #9aa0a8; --line: #2a2d34; --accent: #ffb400;
     color-scheme: dark; accent-color: var(--accent);
     --nav-h: 54px; --nav-gap: max(12px, env(safe-area-inset-bottom)); --nav-space: calc(var(--nav-h) + var(--nav-gap) + 16px);
-    --top-h: calc(max(20px, env(safe-area-inset-top)) + 34px + 10px + 12px); /* 標題列的高度，內容要留出這一塊 */
+    --top-h: calc(max(20px, env(safe-area-inset-top)) + 34px + 10px + 30px); /* 標題列加上它下方漸層模糊（30px）的高度；內容從這裡開始，捲到最上面時第一張卡片才不會被漸層蓋住 */
     --spring: linear(0, 0.3 8%, 0.8 18%, 1.03 30%, 1.02 40%, 0.995 55%, 1);
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -170,7 +170,7 @@
 </div>
 <nav aria-label="活動類型">
   <div class="glass" id="filters" role="group" aria-label="活動類型" data-i="0">
-    <button type="button" aria-pressed="true" data-f="all">全部</button>
+    <button type="button" aria-pressed="true" data-f="recent">最近</button>
     <button type="button" aria-pressed="false" data-f="class">社課</button>
     <button type="button" aria-pressed="false" data-f="ride">團騎</button>
   </div>
@@ -181,7 +181,7 @@
   const TZ = 'Asia/Taipei', TZ_OFFSET = '+08:00'; // 活動時間一律是台灣時間，不管使用者的裝置在哪個時區
   const DEFAULT_LENGTH_MS = 3 * 3600e3;          // 沒填結束時間：開始後 3 小時內算進行中
   const TYPE_LABEL = { class: '社課', ride: '團騎', other: '其他' };
-  const FILTERS = ['all', 'class', 'ride'];
+  const FILTERS = ['recent', 'class', 'ride'];
   const PAN_PX = 12; // 要小於或等於 .wrap 的左右 padding
   const $ = (id) => document.getElementById(id);
   const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -219,10 +219,20 @@
     return '下一場 · ' + (d <= 0 ? '今天' : d === 1 ? '明天' : '還有 ' + d + ' 天');
   }
 
+  /** 「最近」：每種類型（社課、團騎…）各取第一個還沒結束的活動，依時間排好。events 要已依時間排序 */
+  function nearestByType(events, now) {
+    const seen = new Set();
+    return events.filter((e) => {
+      if (seen.has(e.type) || stateOf(e, now) === 'past') return false;
+      seen.add(e.type);
+      return true;
+    });
+  }
+
   const sameMonth = (a, b) => a.slice(0, 7) === b.slice(0, 7);
   // ==== pure end ====
 
-  const store = { events: [], filter: 'all' };
+  const store = { events: [], filter: 'recent' };
 
   // ===== 畫面 =====
   const ICON_NAV = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l18-8-8 18-2-8z"/></svg>';
@@ -255,17 +265,19 @@
         e.description ? el('details', { className: 'more' }, el('summary', {}, '說明'), el('div', { className: 'more-body' }, el('p', { className: 'row' }, e.description))) : null));
   }
 
-  function visibleEvents() { return store.events.filter((e) => store.filter === 'all' || e.type === store.filter); }
+  function visibleEvents() {
+    return store.filter === 'recent' ? nearestByType(store.events, Date.now()) : store.events.filter((e) => e.type === store.filter);
+  }
 
   function render() {
     const events = visibleEvents();
     const list = $('list');
     $('state').hidden = events.length > 0;
-    if (!events.length) $('state').replaceChildren(document.createTextNode(store.events.length ? '這個類型目前沒有安排的活動。' : '目前沒有安排的活動，請稍後再來看看。'));
+    if (!events.length) $('state').replaceChildren(document.createTextNode(!store.events.length ? '目前沒有安排的活動，請稍後再來看看。' : store.filter === 'recent' ? '近期沒有安排的活動。' : '這個類型目前沒有安排的活動。'));
     list.hidden = !events.length;
     const nodes = [];
     events.forEach((e, i) => {
-      if (i === 0 || !sameMonth(events[i - 1].date, e.date)) nodes.push(el('li', { className: 'month', 'aria-hidden': 'true' }, e.date.slice(0, 4) + ' 年 ' + Number(e.date.slice(5, 7)) + ' 月'));
+      if (store.filter !== 'recent' && (i === 0 || !sameMonth(events[i - 1].date, e.date))) nodes.push(el('li', { className: 'month', 'aria-hidden': 'true' }, e.date.slice(0, 4) + ' 年 ' + Number(e.date.slice(5, 7)) + ' 月'));
       nodes.push(el('li', {}, card(e)));
     });
     list.replaceChildren(...nodes);
@@ -276,6 +288,8 @@
   function applyStates() {
     const now = Date.now();
     const events = visibleEvents();
+    // 「最近」會隨時間改變：目前這兩場結束後，要換成接下來的活動
+    if (store.filter === 'recent' && [...document.querySelectorAll('#list .ev')].map((n) => n.dataset.id).join() !== events.map((e) => e.id).join()) { render(); return; }
     const group = new Set(pickNextGroup(events, now).map((e) => e.id));
     document.querySelectorAll('#list .ev').forEach((node) => {
       const e = events.find((x) => x.id === node.dataset.id);
