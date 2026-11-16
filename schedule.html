@@ -187,8 +187,10 @@
   const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // ==== pure start ====
-  const startMs = (e) => Date.parse(e.date + 'T' + e.start + ':00' + TZ_OFFSET);
-  const endMs = (e) => (e.end ? Date.parse(e.date + 'T' + e.end + ':00' + TZ_OFFSET) : startMs(e) + DEFAULT_LENGTH_MS);
+  // 沒有開始時間（start 是空字串）＝全天活動：從當天 00:00 到隔天 00:00，當天結束後才算「已結束」
+  const isAllDay = (e) => !e.start;
+  const startMs = (e) => Date.parse(e.date + 'T' + (e.start || '00:00') + ':00' + TZ_OFFSET);
+  const endMs = (e) => (e.end ? Date.parse(e.date + 'T' + e.end + ':00' + TZ_OFFSET) : startMs(e) + (isAllDay(e) ? 24 * 3600e3 : DEFAULT_LENGTH_MS));
 
   /** 'past'＝已結束；'now'＝進行中；'upcoming'＝還沒開始 */
   function stateOf(e, now) {
@@ -212,7 +214,7 @@
 
   /** 標記上的文字：進行中／今天／明天／還有 N 天 */
   function badgeText(e, now) {
-    if (stateOf(e, now) === 'now') return '進行中';
+    if (stateOf(e, now) === 'now' && !isAllDay(e)) return '進行中'; // 全天活動當天不叫「進行中」，顯示成「今天」
     const d = daysBetween(taipeiDate(now), e.date);
     return '下一場 · ' + (d <= 0 ? '今天' : d === 1 ? '明天' : '還有 ' + d + ' 天');
   }
@@ -237,7 +239,7 @@
 
   const fmtWeekday = new Intl.DateTimeFormat('zh-TW', { timeZone: TZ, weekday: 'short' });
   function card(e) {
-    const t = e.end ? e.start + ' – ' + e.end : e.start;
+    const t = isAllDay(e) ? '全天' : e.end ? e.start + ' – ' + e.end : e.start;
     const link = httpsUrl(e.mapLink);
     const nav = link && el('a', { className: 'ico', href: link, target: '_blank', rel: 'noopener noreferrer', 'aria-label': '用 Google 地圖導航到' + (e.place || e.title), title: '用 Google 地圖導航' });
     if (nav) nav.innerHTML = ICON_NAV; // 固定的常數字串，不含使用者資料
@@ -247,7 +249,7 @@
         el('span', { className: 'd' }, String(Number(e.date.slice(8, 10)))),
         el('span', { className: 'w' }, fmtWeekday.format(Date.parse(e.date + 'T12:00:00' + TZ_OFFSET)))),
       el('div', { className: 'body' },
-        el('div', { className: 'meta' }, el('time', { dateTime: e.date + 'T' + e.start }, t), el('span', { className: 'chip' }, TYPE_LABEL[e.type] || '其他'), e.nature ? el('span', { className: 'nat' }, e.nature) : null),
+        el('div', { className: 'meta' }, el('time', { dateTime: e.start ? e.date + 'T' + e.start : e.date }, t), el('span', { className: 'chip' }, TYPE_LABEL[e.type] || '其他'), e.nature ? el('span', { className: 'nat' }, e.nature) : null),
         el('h2', {}, e.title),
         (e.place || nav) ? el('div', { className: 'place' }, el('span', {}, e.place), nav) : null,
         e.description ? el('details', { className: 'more' }, el('summary', {}, '說明'), el('div', { className: 'more-body' }, el('p', { className: 'row' }, e.description))) : null));
@@ -281,7 +283,7 @@
       const st = stateOf(e, now);
       const isNext = group.has(e.id);
       node.classList.toggle('past', st === 'past');
-      node.classList.toggle('now', isNext && st === 'now');
+      node.classList.toggle('now', isNext && st === 'now' && !isAllDay(e));
       node.classList.toggle('next', !!isNext);
       if (isNext) node.setAttribute('aria-current', 'true'); else node.removeAttribute('aria-current');
       let badge = node.querySelector('.badge');
