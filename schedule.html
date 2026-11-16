@@ -58,7 +58,7 @@
   }
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .top::before { background: linear-gradient(to bottom, var(--bg) 40%, transparent); } .top::after { display: none; } }
   @media (prefers-reduced-transparency: reduce) { .top::before { -webkit-backdrop-filter: none; backdrop-filter: none; background: linear-gradient(to bottom, var(--bg) 40%, transparent); } .top::after { display: none; } }
-  h1 { margin: 0; font-size: 28px; font-weight: 800; line-height: 1.2; letter-spacing: .02em; }
+  h1 { margin: 0; font-size: 28px; font-weight: 800; line-height: 1.2; letter-spacing: .02em; text-align: center; }
 
   /* 浮動玻璃篩選列：和地圖頁的導覽列一樣，彈性滑動的指示膠囊 */
   nav { position: fixed; z-index: 1200; inset-inline: 0; inset-block-end: var(--nav-gap); display: flex; justify-content: center; pointer-events: none; }
@@ -159,6 +159,7 @@
   const DEFAULT_LENGTH_MS = 3 * 3600e3;          // 沒填結束時間：開始後 3 小時內算進行中
   const TYPE_LABEL = { class: '社課', ride: '團騎', other: '其他' };
   const FILTERS = ['all', 'class', 'ride'];
+  const PAN_PX = 12; // 要小於或等於 .wrap 的左右 padding
   const $ = (id) => document.getElementById(id);
   const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -313,7 +314,9 @@
     $('filters').dataset.i = String(FILTERS.indexOf(f));
     $('filters').querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.f === f)));
     render(); scrollToNext(false);
-    if (!reduceMotion()) $('list').animate([{ translate: dir * 36 + 'px 0', opacity: 0 }, { translate: '0 0', opacity: 1 }], { duration: 420, easing: 'cubic-bezier(.22, 1, .36, 1)' });
+    // 平移距離不能超過頁面左右的留白（.wrap 的 padding，12px）：列表的任何一部分只要超出畫面，
+    // iOS 就會暫時把版面視窗撐寬，底部固定的篩選列會跟著位移、掉出畫面幾幀。不超出就不會
+    if (!reduceMotion()) $('list').animate([{ translate: dir * PAN_PX + 'px 0', opacity: 0 }, { translate: '0 0', opacity: 1 }], { duration: 420, easing: 'cubic-bezier(.22, 1, .36, 1)' });
   }
   $('filters').addEventListener('click', (e) => { const b = e.target.closest('button[data-f]'); if (b) setFilter(b.dataset.f); });
   setInterval(applyStates, 60e3);
