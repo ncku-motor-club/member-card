@@ -28,10 +28,10 @@
   html, body { block-size: 100%; overflow: hidden; }
   #scroller { position: fixed; inset: 0; overflow-y: auto; overflow-x: clip; -webkit-overflow-scrolling: touch;
     scroll-padding-block: var(--top-h) calc(var(--nav-space) + 8px); }
-  /* Android（Chrome）捲到頂或底會出現拉伸／發光效果，連標題列後面模糊的內容也一起被拉伸，所以關掉；
-     iOS 的橡皮筋彈跳保留（-webkit-touch-callout 只有 iOS 的 WebKit 認得，下面的規則就只套用在非 iOS） */
-  @supports not (-webkit-touch-callout: none) { #scroller { overscroll-behavior: none; } }
   #scroller:focus-visible { outline-offset: -3px; } /* 可以用鍵盤的方向鍵與空白鍵捲動 */
+  /* Android（含新版的拉伸效果）會把「到底了」的效果套在整個頁面上，連固定的標題列也一起被拉。
+     非 iOS 就關掉系統的效果，改由下面的程式讓「只有列表」彈跳；iPhone 用原生的，不碰 */
+  html.own-overscroll, html.own-overscroll body, html.own-overscroll #scroller { overscroll-behavior: none; }
   body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif; line-height: 1.5; }
   [hidden] { display: none !important; }
   :where(a, button, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -359,6 +359,45 @@
       if (wantOpen) { details.open = true; run(current, body.scrollHeight); }
       else run(current, 0, () => { details.open = false; });
     });
+  }
+
+  // ===== 觸底彈跳（Android 與其他非 iOS 的觸控裝置）=====
+  // 手指拖過列表的頂端或底端時，列表（不含標題列與篩選列）跟著手指移動，越拉越吃力；放開後減速彈回。
+  // 做不到的部分：用力甩一下衝到底的慣性彈跳（網頁拿不到瀏覽器的慣性）
+  const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (!IS_IOS || window.FORCE_RUBBER) {
+    document.documentElement.classList.add('own-overscroll');
+    if (!reduceMotion() && (matchMedia('(pointer: coarse)').matches || window.FORCE_RUBBER)) {
+      const sc = $('scroller'), content = sc.firstElementChild;
+      const atTop = () => sc.scrollTop <= 0;
+      const atBottom = () => sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 1;
+      // iOS 的阻尼公式：拉得越遠，同樣的手指位移換來的移動越少，不會超過 dimension
+      const resist = (d) => { const dim = sc.clientHeight; return Math.sign(d) * (1 - 1 / (Math.abs(d) * 0.55 / dim + 1)) * dim; };
+      let lastY = 0, anchor = null, side = '', offset = 0;
+      const setOffset = (v) => { offset = v; content.style.transform = v ? 'translateY(' + v + 'px)' : ''; };
+      sc.addEventListener('touchstart', (e) => { if (e.touches.length !== 1) return; content.getAnimations().forEach((a) => a.cancel()); lastY = e.touches[0].clientY; anchor = null; }, { passive: true });
+      sc.addEventListener('touchmove', (e) => {
+        if (e.touches.length !== 1) return;
+        const y = e.touches[0].clientY;
+        if (anchor === null) { // 捲到邊緣後還繼續往外拖，才開始算「過頭」的距離
+          if (y > lastY && atTop()) { anchor = lastY; side = 'top'; }
+          else if (y < lastY && atBottom()) { anchor = lastY; side = 'bottom'; }
+        }
+        if (anchor !== null) {
+          const raw = y - anchor;
+          if ((side === 'top' && raw <= 0) || (side === 'bottom' && raw >= 0)) { anchor = null; setOffset(0); } // 往回拖到起點：交還給一般捲動
+          else { e.preventDefault(); setOffset(resist(raw)); }
+        }
+        lastY = y;
+      }, { passive: false });
+      const release = () => {
+        anchor = null;
+        if (!offset) return;
+        const from = offset; setOffset(0);
+        content.animate([{ transform: 'translateY(' + from + 'px)' }, { transform: 'translateY(0)' }], { duration: 480, easing: 'cubic-bezier(.22, 1, .36, 1)' });
+      };
+      sc.addEventListener('touchend', release); sc.addEventListener('touchcancel', release);
+    }
   }
 
   load();
