@@ -28,6 +28,9 @@
   html, body { block-size: 100%; overflow: hidden; }
   #scroller { position: fixed; inset: 0; overflow-y: auto; overflow-x: clip; -webkit-overflow-scrolling: touch;
     scroll-padding-block: var(--top-h) calc(var(--nav-space) + 8px); }
+  /* Android（Chrome）捲到頂或底會出現拉伸／發光效果，連標題列後面模糊的內容也一起被拉伸，所以關掉；
+     iOS 的橡皮筋彈跳保留（-webkit-touch-callout 只有 iOS 的 WebKit 認得，下面的規則就只套用在非 iOS） */
+  @supports not (-webkit-touch-callout: none) { #scroller { overscroll-behavior: none; } }
   #scroller:focus-visible { outline-offset: -3px; } /* 可以用鍵盤的方向鍵與空白鍵捲動 */
   body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif; line-height: 1.5; }
   [hidden] { display: none !important; }
