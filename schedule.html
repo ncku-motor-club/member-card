@@ -18,7 +18,7 @@
     --bg: #0e0f12; --panel: #17191e; --text: #f2f2f2; --muted: #9aa0a8; --line: #2a2d34; --accent: #ffb400;
     color-scheme: dark; accent-color: var(--accent);
     --nav-h: 54px; --nav-gap: max(12px, env(safe-area-inset-bottom)); --nav-space: calc(var(--nav-h) + var(--nav-gap) + 16px);
-    --top-h: calc(max(20px, env(safe-area-inset-top)) + 34px + 10px + 30px); /* 標題列加上它下方漸層模糊（30px）的高度；內容從這裡開始，捲到最上面時第一張卡片才不會被漸層蓋住 */
+    --top-h: calc(max(20px, env(safe-area-inset-top)) + 34px + 10px + 12px); /* 標題列的高度，內容要留出這一塊 */
     --spring: linear(0, 0.3 8%, 0.8 18%, 1.03 30%, 1.02 40%, 0.995 55%, 1);
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -106,6 +106,7 @@
   ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
   .month { margin: 18px 4px 2px; font-size: 13px; font-weight: 700; letter-spacing: .05em; color: var(--muted); }
 
+  .none { margin: 0; padding: 14px; border-radius: 16px; border: 1px dashed var(--line); color: var(--muted); font-size: 14px; text-align: center; }
   .kind-class { --k: #4ea1ff; } .kind-ride { --k: #34c28b; } .kind-other { --k: #9aa4b2; }
   .ev { position: relative; display: grid; grid-template-columns: 56px 1fr; gap: 14px; padding: 14px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line);
     border-inline-start: 4px solid var(--k); transition: opacity .3s, filter .3s; }
@@ -182,6 +183,7 @@
   const DEFAULT_LENGTH_MS = 3 * 3600e3;          // 沒填結束時間：開始後 3 小時內算進行中
   const TYPE_LABEL = { class: '社課', ride: '團騎', other: '其他' };
   const FILTERS = ['recent', 'class', 'ride'];
+  const RECENT_TYPES = ['class', 'ride']; // 「最近」分頁依這個順序，各列出一場
   const PAN_PX = 12; // 要小於或等於 .wrap 的左右 padding
   const $ = (id) => document.getElementById(id);
   const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -209,6 +211,11 @@
     return next ? events.filter((e) => e.date === next.date && stateOf(e, now) !== 'past') : [];
   }
 
+  /** 每種類型各一場：該類型第一個還沒結束的活動（進行中的也算）。回傳依 types 順序的 [{ type, event|null }] */
+  function nearestPerType(events, now, types) {
+    return types.map((type) => ({ type, event: pickNext(events.filter((e) => e.type === type), now) }));
+  }
+
   const taipeiDate = (ms) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(ms); // yyyy-mm-dd
   const daysBetween = (fromDate, toDate) => Math.round((Date.parse(toDate + 'T00:00:00' + TZ_OFFSET) - Date.parse(fromDate + 'T00:00:00' + TZ_OFFSET)) / 864e5);
 
@@ -217,16 +224,6 @@
     if (stateOf(e, now) === 'now' && !isAllDay(e)) return '進行中'; // 全天活動當天不叫「進行中」，顯示成「今天」
     const d = daysBetween(taipeiDate(now), e.date);
     return '下一場 · ' + (d <= 0 ? '今天' : d === 1 ? '明天' : '還有 ' + d + ' 天');
-  }
-
-  /** 「最近」：每種類型（社課、團騎…）各取第一個還沒結束的活動，依時間排好。events 要已依時間排序 */
-  function nearestByType(events, now) {
-    const seen = new Set();
-    return events.filter((e) => {
-      if (seen.has(e.type) || stateOf(e, now) === 'past') return false;
-      seen.add(e.type);
-      return true;
-    });
   }
 
   const sameMonth = (a, b) => a.slice(0, 7) === b.slice(0, 7);
@@ -265,22 +262,35 @@
         e.description ? el('details', { className: 'more' }, el('summary', {}, '說明'), el('div', { className: 'more-body' }, el('p', { className: 'row' }, e.description))) : null));
   }
 
+  // 「最近」：社課與團騎各只列出最近的一場；其他分頁：該類型的整份列表（含已結束的）
+  function recentGroups() { return nearestPerType(store.events, Date.now(), RECENT_TYPES); }
   function visibleEvents() {
-    return store.filter === 'recent' ? nearestByType(store.events, Date.now()) : store.events.filter((e) => e.type === store.filter);
+    if (store.filter === 'recent') return recentGroups().map((g) => g.event).filter(Boolean);
+    return store.events.filter((e) => e.type === store.filter);
   }
 
   function render() {
     const events = visibleEvents();
     const list = $('list');
-    $('state').hidden = events.length > 0;
-    if (!events.length) $('state').replaceChildren(document.createTextNode(!store.events.length ? '目前沒有安排的活動，請稍後再來看看。' : store.filter === 'recent' ? '近期沒有安排的活動。' : '這個類型目前沒有安排的活動。'));
-    list.hidden = !events.length;
+    const recent = store.filter === 'recent';
+    const empty = !events.length; // 「最近」只有在社課與團騎都沒有接下來的活動時才是空的；只有一類沒有時，那一類顯示「目前沒有安排」
+    $('state').hidden = !empty;
+    if (empty) $('state').replaceChildren(document.createTextNode(recent ? '目前沒有接下來的社課或團騎，請稍後再來看看。' : store.events.length ? '這個類型目前沒有安排的活動。' : '目前沒有安排的活動，請稍後再來看看。'));
+    list.hidden = empty;
     const nodes = [];
-    events.forEach((e, i) => {
-      if (store.filter !== 'recent' && (i === 0 || !sameMonth(events[i - 1].date, e.date))) nodes.push(el('li', { className: 'month', 'aria-hidden': 'true' }, e.date.slice(0, 4) + ' 年 ' + Number(e.date.slice(5, 7)) + ' 月'));
-      nodes.push(el('li', {}, card(e)));
-    });
+    if (recent) {
+      recentGroups().forEach(({ type, event }) => {
+        nodes.push(el('li', { className: 'month', 'aria-hidden': 'true' }, '最近的' + TYPE_LABEL[type]));
+        nodes.push(el('li', {}, event ? card(event) : el('p', { className: 'none' }, '目前沒有安排的' + TYPE_LABEL[type])));
+      });
+    } else {
+      events.forEach((e, i) => {
+        if (i === 0 || !sameMonth(events[i - 1].date, e.date)) nodes.push(el('li', { className: 'month', 'aria-hidden': 'true' }, e.date.slice(0, 4) + ' 年 ' + Number(e.date.slice(5, 7)) + ' 月'));
+        nodes.push(el('li', {}, card(e)));
+      });
+    }
     list.replaceChildren(...nodes);
+    list.dataset.ids = events.map((e) => e.id).join(',');
     applyStates();
   }
 
@@ -288,8 +298,8 @@
   function applyStates() {
     const now = Date.now();
     const events = visibleEvents();
-    // 「最近」會隨時間改變：目前這兩場結束後，要換成接下來的活動
-    if (store.filter === 'recent' && [...document.querySelectorAll('#list .ev')].map((n) => n.dataset.id).join() !== events.map((e) => e.id).join()) { render(); return; }
+    // 「最近」會隨時間改變：某一場結束後，那一類要換成下一場。顯示的活動變了就重畫（只重畫這一次，不捲動）
+    if (store.filter === 'recent' && events.map((e) => e.id).join(',') !== $('list').dataset.ids) { render(); return; }
     const group = new Set(pickNextGroup(events, now).map((e) => e.id));
     document.querySelectorAll('#list .ev').forEach((node) => {
       const e = events.find((x) => x.id === node.dataset.id);
@@ -307,6 +317,7 @@
   }
 
   function scrollToNext(smooth) {
+    if (store.filter === 'recent') { $('scroller').scrollTop = 0; return; } // 「最近」只有兩張卡片，從頭看就好
     const node = document.querySelector('#list .ev.next');
     node?.scrollIntoView({ block: 'center', behavior: smooth && !reduceMotion() ? 'smooth' : 'auto' });
   }
