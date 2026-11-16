@@ -18,12 +18,17 @@
     --bg: #0e0f12; --panel: #17191e; --text: #f2f2f2; --muted: #9aa0a8; --line: #2a2d34; --accent: #ffb400;
     color-scheme: dark; accent-color: var(--accent);
     --nav-h: 54px; --nav-gap: max(12px, env(safe-area-inset-bottom)); --nav-space: calc(var(--nav-h) + var(--nav-gap) + 16px);
+    --top-h: calc(max(20px, env(safe-area-inset-top)) + 34px + 10px + 12px); /* 標題列的高度，內容要留出這一塊 */
     --spring: linear(0, 0.3 8%, 0.8 18%, 1.03 30%, 1.02 40%, 0.995 55%, 1);
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  /* 切換類型時列表會往旁邊平移，超出畫面的部分不能撐出橫向捲動桿：只在最外層（html）裁切。
-     不能放在 body——那會讓 body 變成捲動容器，上方標題列的 sticky 就失效；clip 不會建立捲動容器，舊瀏覽器退回 hidden（套在 html 上會交給視窗，一樣不影響 sticky） */
-  html { overflow-x: hidden; overflow-x: clip; scroll-padding-block: 108px calc(var(--nav-space) + 8px); }
+  /* 捲動發生在中間這個容器（#scroller）裡，不是整個文件：上方標題列與底部篩選列都在容器外面、固定不動，
+     所以 iOS 捲到頂或底時的橡皮筋彈跳只會動到列表，標題列不會跟著動。
+     文件本身不捲動（html、body 高度固定、overflow hidden），也就不會有整頁的彈跳 */
+  html, body { block-size: 100%; overflow: hidden; }
+  #scroller { position: fixed; inset: 0; overflow-y: auto; overflow-x: clip; -webkit-overflow-scrolling: touch;
+    scroll-padding-block: var(--top-h) calc(var(--nav-space) + 8px); }
+  #scroller:focus-visible { outline-offset: -3px; } /* 可以用鍵盤的方向鍵與空白鍵捲動 */
   body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif; line-height: 1.5; }
   [hidden] { display: none !important; }
   :where(a, button, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -43,7 +48,7 @@
 
   /* 上方標題列：像 iOS 狀態列的毛玻璃漸層。整條滿版、沒有邊框與圓角；模糊和底色都由上往下漸漸淡出，
      卡片從下面捲過去時會先變模糊、再慢慢清楚。兩層模糊（輕的較長、重的較短）疊出漸進的感覺；文字不在被遮罩的圖層裡，不會跟著淡掉 */
-  .top { position: sticky; inset-block-start: 0; z-index: 10; isolation: isolate; padding-block: max(20px, env(safe-area-inset-top)) 10px; }
+  .top { position: fixed; inset-inline: 0; inset-block-start: 0; z-index: 10; isolation: isolate; padding-block: max(20px, env(safe-area-inset-top)) 10px; }
   .top::before, .top::after { content: ""; position: absolute; inset-inline: 0; inset-block-start: 0; z-index: -1; pointer-events: none; }
   .top::before {
     block-size: calc(100% + 30px);
@@ -84,7 +89,7 @@
   @media (hover: hover) { .glass button:hover { color: #fff; } .ico:hover { filter: brightness(1.15); } }
   @media (forced-colors: active) { .glass { border: 1px solid CanvasText; background: Canvas; } .glass::before { border: 2px solid Highlight; background: none; box-shadow: none; } }
 
-  main { padding-block: 12px calc(var(--nav-space) + 8px); }
+  main { padding-block: var(--top-h) calc(var(--nav-space) + 8px); }
   #note, #state { margin-block: 16px; padding: 12px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); color: var(--muted); font-size: 14px; text-align: center; }
   #state button { margin-block-start: 10px; padding: 8px 16px; border-radius: 10px; border: 1px solid var(--accent); background: var(--accent); color: #111; font: inherit; font-weight: 700; cursor: pointer; }
 
@@ -144,11 +149,13 @@
 <header class="top">
   <div class="wrap"><h1>活動時間表</h1><span class="beta">測試中</span></div>
 </header>
+<div id="scroller" tabindex="0" aria-label="活動列表">
 <main class="wrap">
   <div id="note" role="status" hidden></div>
   <div id="state">載入中…</div>
   <ol id="list" hidden></ol>
 </main>
+</div>
 <nav aria-label="活動類型">
   <div class="glass" id="filters" role="group" aria-label="活動類型" data-i="0">
     <button type="button" aria-pressed="true" data-f="all">全部</button>
