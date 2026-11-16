@@ -58,6 +58,10 @@
   }
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .top::before { background: linear-gradient(to bottom, var(--bg) 40%, transparent); } .top::after { display: none; } }
   @media (prefers-reduced-transparency: reduce) { .top::before { -webkit-backdrop-filter: none; backdrop-filter: none; background: linear-gradient(to bottom, var(--bg) 40%, transparent); } .top::after { display: none; } }
+  .top .wrap { position: relative; }
+  /* 右上角的「測試中」標：功能正式上線後，把這個 <span class="beta"> 刪掉就好 */
+  .beta { position: absolute; inset-inline-end: 12px; inset-block-start: 50%; translate: 0 -50%; padding: 2px 10px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--accent) 65%, transparent);
+    background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); font-size: 12px; font-weight: 700; white-space: nowrap; }
   h1 { margin: 0; font-size: 28px; font-weight: 800; line-height: 1.2; letter-spacing: .02em; text-align: center; }
 
   /* 浮動玻璃篩選列：和地圖頁的導覽列一樣，彈性滑動的指示膠囊 */
@@ -138,7 +142,7 @@
 </head>
 <body>
 <header class="top">
-  <div class="wrap"><h1>活動時間表</h1></div>
+  <div class="wrap"><h1>活動時間表</h1><span class="beta">測試中</span></div>
 </header>
 <main class="wrap">
   <div id="note" role="status" hidden></div>
