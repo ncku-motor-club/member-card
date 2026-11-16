@@ -119,6 +119,7 @@
   .chip { padding: 1px 9px; border-radius: 999px; background: color-mix(in srgb, var(--k) 18%, transparent); color: var(--k); font-size: 12px; font-weight: 700; }
   /* 性質（靜態、動態、放假…）：低調的外框小標籤，顏色不跟類型走，才不會跟類型標籤搶 */
   .nat { padding: 1px 9px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--muted) 55%, transparent); color: var(--muted); font-size: 12px; font-weight: 600; }
+  .pause { color: #ff5f5f; font-weight: 800; }
   h2 { margin: 4px 0 0; font-size: 18px; font-weight: 700; line-height: 1.35; text-wrap: balance; }
   .place { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-block-start: 8px; font-size: 14px; color: var(--muted); text-wrap: pretty; }
   /* 導航按鈕：和地圖頁一樣，黃色實心圓形箭頭 */
@@ -244,6 +245,10 @@
   }
   const httpsUrl = (raw) => { try { const u = new URL(raw); return u.protocol === 'https:' ? u.href : ''; } catch (_) { return ''; } };
 
+  // 標題裡的「（暫停）」「(暫停)」顯示成紅字（像地圖頁的「特約」標籤）；其餘文字照原樣
+  const PAUSE_RE = /([（(]暫停[）)])/;
+  const titleParts = (title) => title.split(PAUSE_RE).filter(Boolean).map((t) => (PAUSE_RE.test(t) ? el('span', { className: 'pause' }, t) : t));
+
   const fmtWeekday = new Intl.DateTimeFormat('zh-TW', { timeZone: TZ, weekday: 'short' });
   function card(e) {
     const t = isAllDay(e) ? '全天' : e.end ? e.start + ' – ' + e.end : e.start;
@@ -257,7 +262,7 @@
         el('span', { className: 'w' }, fmtWeekday.format(Date.parse(e.date + 'T12:00:00' + TZ_OFFSET)))),
       el('div', { className: 'body' },
         el('div', { className: 'meta' }, el('time', { dateTime: e.start ? e.date + 'T' + e.start : e.date }, t), el('span', { className: 'chip' }, TYPE_LABEL[e.type] || '其他'), e.nature ? el('span', { className: 'nat' }, e.nature) : null),
-        el('h2', {}, e.title),
+        el('h2', {}, ...titleParts(e.title)),
         (e.place || nav) ? el('div', { className: 'place' }, el('span', {}, e.place), nav) : null,
         e.description ? el('details', { className: 'more' }, el('summary', {}, '說明'), el('div', { className: 'more-body' }, el('p', { className: 'row' }, e.description))) : null));
   }
