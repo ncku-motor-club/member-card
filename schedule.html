@@ -26,7 +26,7 @@
      所以 iOS 捲到頂或底時的橡皮筋彈跳只會動到列表，標題列不會跟著動。
      文件本身不捲動（html、body 高度固定、overflow hidden），也就不會有整頁的彈跳 */
   html, body { block-size: 100%; overflow: hidden; }
-  #scroller { position: fixed; inset: 0; overflow-y: auto; overflow-x: clip; -webkit-overflow-scrolling: touch;
+  #scroller { position: fixed; inset: 0; overflow-y: auto; overflow-x: clip;
     scroll-padding-block: var(--top-h) calc(var(--nav-space) + 8px); }
   #scroller:focus-visible { outline-offset: -3px; } /* 可以用鍵盤的方向鍵與空白鍵捲動 */
   /* Android（含新版的拉伸效果）會把「到底了」的效果套在整個頁面上，連固定的標題列也一起被拉。
@@ -84,6 +84,13 @@
   }
   .glass[data-i="1"]::before { translate: 100% 0; }
   .glass[data-i="2"]::before { translate: 200% 0; }
+  /* 錨點定位：指示膠囊直接黏在被按下的那顆按鈕上，位置與寬度都由按鈕決定。
+     以後多加一種篩選（或標籤字數不同）也不用改數字。不支援的瀏覽器用上面的 data-i 位移（三等分） */
+  @supports (anchor-name: --a) and (position-anchor: --a) {
+    .glass button[aria-pressed="true"] { anchor-name: --active-filter; }
+    .glass[data-i]::before { position-anchor: --active-filter; translate: none; inline-size: auto; inset-inline: anchor(left) anchor(right); }
+    @media (prefers-reduced-motion: no-preference) { .glass[data-i]::before { transition: inset-inline .5s var(--spring); } }
+  }
   @media (prefers-reduced-motion: reduce) { .glass::before { transition: none; } }
   @media (prefers-reduced-motion: no-preference) {
     .glass button { transition: scale .2s; }
