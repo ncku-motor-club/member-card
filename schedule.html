@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://script.google.com" crossorigin>
 <script>
   // 在 <head> 就開始抓活動資料，主程式接手這個請求；「重新載入」才重新請求
-  const EVENTS_API = 'https://script.google.com/macros/s/AKfycbxp8GAxZ0OWR-gTlE1UrK4EGLLByWPSqFrJ-lj-O8kcljgEfpH6oh2YpJ-X00ISN2EZ3Q/exec?view=events';
+  const EVENTS_API = 'https://script.google.com/macros/s/AKfycbxz1tg6InFh-X7wYc393a0otEp8A6ynY0a7yxZQob7Tk_-3f7DRiBZJRlwFY3z8BPhgQg/exec';
   let earlyEvents = fetch(EVENTS_API, { signal: AbortSignal.timeout?.(15000) });
   earlyEvents.catch(() => {});
 </script>
